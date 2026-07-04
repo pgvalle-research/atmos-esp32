@@ -1,4 +1,14 @@
 dependencies:
+  espressif/lua:
+    component_hash: 1eab31ab7200f78a0cb6e1633532abd012a167d504e8d8fc993909c52ce4fb88
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=5.0'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 5.5.0
   idf:
     source:
       type: idf
@@ -14,8 +24,8 @@ dependencies:
       type: service
     version: 1.22.1
 direct_dependencies:
-- idf
+- espressif/lua
 - joltwallet/littlefs
-manifest_hash: eaef9343230f73d64b07cd40915ba1134c2ccf836decfba3a130c7280c3cbc9a
+manifest_hash: 7195996e9709fc2d2019f3ed28f42a66fcde3232c21392b2c1d72f7d6e093052
 target: esp32
 version: 3.0.0
