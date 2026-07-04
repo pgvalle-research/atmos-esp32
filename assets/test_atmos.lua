@@ -1,0 +1,1 @@
+local a=require"atmos.env.clock_esp"loop(function()spawn(task(function()loop_on(1*_s_,function()print("Task 1 clock: "..tostring(a.now).."us")end)end))spawn(task(function()loop_on(2*_s_,function()print("Task 2 clock: "..tostring(a.now).."us")end)end))await(10*_s_)end)
