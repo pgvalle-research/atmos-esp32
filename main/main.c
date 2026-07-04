@@ -45,7 +45,7 @@ static void init_filesystem(void)
 
     esp_vfs_littlefs_conf_t conf = {
         .base_path = LUA_FILE_PATH,
-        .partition_label = "assets",
+        .partition_label = "lua",
         .format_if_mount_failed = true,
         .dont_mount = false,
     };
