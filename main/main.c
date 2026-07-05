@@ -120,8 +120,10 @@ static int resume_lua_app(lua_State *L, lua_State *T)
     if (status == LUA_OK) {
         lua_pop(T, nresults);
     } else {
-        ESP_LOGE(TAG, "Error running Lua script '%s': %s", LUA_ENTRYPOINT_PATH, lua_tostring(T, -1));
-        lua_pop(T, 1);
+        size_t len;
+        const char *err_msg = luaL_tolstring(T, -1, &len);
+        ESP_LOGE(TAG, "Error running Lua script '%s': %s", LUA_ENTRYPOINT_PATH, err_msg);
+        lua_pop(T, 2); // Pop both the formatted string and the original error object
     }
 
     return status;

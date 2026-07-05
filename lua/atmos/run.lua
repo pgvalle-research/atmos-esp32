@@ -278,6 +278,8 @@ local function flatten(err)
     return ret
 end
 
+meta_throw.__tostring = flatten
+
 local function xcall(dbg, stk, f, ...)
     return (function(ok, err, ...)
         if ok then
@@ -360,6 +362,7 @@ function M.stop()
         end
         _envs_[i] = nil
     end
+    collectgarbage()
 end
 
 -------------------------------------------------------------------------------
