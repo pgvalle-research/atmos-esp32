@@ -98,13 +98,7 @@ static bool set_lua_package_path(lua_State *L)
 
 static void wait_for_clock_tick(void)
 {
-    if (ulTaskNotifyTake(pdTRUE, 0) == 0) {
-        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-        return;
-    }
-
-    vTaskDelay(1);
-    ulTaskNotifyTake(pdTRUE, 0);
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 }
 
 static int resume_lua_app(lua_State *L, lua_State *T)
@@ -134,7 +128,7 @@ static uint64_t s_last_yield_time = 0;
 static void lua_hook(lua_State *L, lua_Debug *ar)
 {
     uint64_t now = esp_timer_get_time();
-    if (now - s_last_yield_time > 50000) { // 50ms
+    if (now - s_last_yield_time > 500000) { // 500ms
         s_last_yield_time = now;
         vTaskDelay(1);
     }
@@ -161,7 +155,7 @@ static int run_lua_file(void)
     register_esp_bindings(L);
 
     s_last_yield_time = esp_timer_get_time();
-    lua_sethook(T, lua_hook, LUA_MASKCOUNT, 1000);
+    lua_sethook(T, lua_hook, LUA_MASKCOUNT, 10000);
 
     // Tune Garbage Collector for memory-constrained embedded environments (Lua 5.4/5.5 API)
     lua_gc(L, LUA_GCPARAM, LUA_GCPPAUSE, 100);
