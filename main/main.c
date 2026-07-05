@@ -9,6 +9,7 @@
 #include "lualib.h"
 #include "lauxlib.h"
 #include "esp_timer.h"
+#include <unistd.h>
 
 #define TAG "lua_atmos"
 
@@ -174,6 +175,10 @@ void app_main(void)
     setvbuf(stdout, NULL, _IONBF, 0);
 
     init_filesystem();
+    
+    // Change working directory to /lua/tst so that dofile can resolve relative test files on ESP32
+    chdir("/lua/tst");
+
     ESP_LOGI(TAG, "Running %s", LUA_ENTRYPOINT_PATH);
     int status = run_lua_file();
     ESP_LOGI(TAG, "Lua app exited with status %d", status);
