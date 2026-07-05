@@ -25,18 +25,14 @@
 static TaskHandle_t s_lua_task;
 static esp_timer_handle_t s_clock_timer;
 
-static void clock_timer_cb(void *arg)
-{
+static void clock_timer_cb(void *arg) {
     if (s_lua_task != NULL) {
         xTaskNotifyGive(s_lua_task);
     }
 }
 
-static void start_clock_timer(void)
-{
-    if (s_clock_timer != NULL) {
-        return;
-    }
+static void start_clock_timer() {
+    if (s_clock_timer != NULL) return;
 
     const esp_timer_create_args_t timer_args = {
         .callback = clock_timer_cb,
@@ -47,29 +43,23 @@ static void start_clock_timer(void)
     ESP_ERROR_CHECK(esp_timer_start_periodic(s_clock_timer, LUA_CLOCK_PERIOD_US));
 }
 
-static void stop_clock_timer(void)
-{
-    if (s_clock_timer == NULL) {
-        return;
-    }
+static void stop_clock_timer() {
+    if (s_clock_timer == NULL) return;
 
     ESP_ERROR_CHECK(esp_timer_stop(s_clock_timer));
     ESP_ERROR_CHECK(esp_timer_delete(s_clock_timer));
     s_clock_timer = NULL;
 }
 
-static int l_wait_clock(lua_State *L)
-{
+static int l_wait_clock(lua_State *L) {
     return lua_yield(L, 0);
 }
 
-static void register_esp_bindings(lua_State *L)
-{
+static void register_esp_bindings(lua_State *L) {
     lua_register(L, "wait_clock", l_wait_clock);
 }
 
-static void init_filesystem(void)
-{
+static void init_filesystem() {
     esp_vfs_littlefs_conf_t conf = {
         .base_path = LUA_MOUNT_PATH,
         .partition_label = LUA_PARTITION_LABEL,
@@ -85,24 +75,19 @@ static void init_filesystem(void)
     }
 }
 
-static bool set_lua_package_path(lua_State *L)
-{
-    if (luaL_dostring(L, LUA_PACKAGE_PATH) == LUA_OK) {
-        return true;
-    }
+static bool set_lua_package_path(lua_State *L) {
+    if (luaL_dostring(L, LUA_PACKAGE_PATH) == LUA_OK) return true;
 
     ESP_LOGE(TAG, "Failed to set package.path: %s", lua_tostring(L, -1));
     lua_pop(L, 1);
     return false;
 }
 
-static void wait_for_clock_tick(void)
-{
+static void wait_for_clock_tick() {
     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 }
 
-static int resume_lua_app(lua_State *L, lua_State *T)
-{
+static int resume_lua_app(lua_State *L, lua_State *T) {
     int nresults = 0;
     int status = lua_resume(T, L, 0, &nresults);
 
@@ -125,8 +110,7 @@ static int resume_lua_app(lua_State *L, lua_State *T)
 
 static uint64_t s_last_yield_time = 0;
 
-static void lua_hook(lua_State *L, lua_Debug *ar)
-{
+static void lua_hook(lua_State *L, lua_Debug *ar) {
     uint64_t now = esp_timer_get_time();
     if (now - s_last_yield_time > 500000) { // 500ms
         s_last_yield_time = now;
@@ -134,8 +118,7 @@ static void lua_hook(lua_State *L, lua_Debug *ar)
     }
 }
 
-static int run_lua_file(void)
-{
+static int run_lua_file() {
     lua_State *L = luaL_newstate();
     if (L == NULL) {
         ESP_LOGE(TAG, "Failed to create Lua state");
@@ -183,8 +166,7 @@ done:
     return status;
 }
 
-void app_main(void)
-{
+void app_main(void) {
     setvbuf(stdout, NULL, _IONBF, 0);
 
     init_filesystem();
