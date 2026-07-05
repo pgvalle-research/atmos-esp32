@@ -3,7 +3,8 @@ function assertx(cur, exp)
 end
 
 function assertfx(cur, exp)
-    return assert(string.find(cur,exp), cur)
+    exp = exp:gsub("([%w_-]+%.lua)", ".-%1")
+    return assert(string.find(cur, exp), cur)
 end
 
 local OUT = ""
