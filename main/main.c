@@ -149,6 +149,10 @@ static int run_lua_file(void)
     luaL_openlibs(L);
     register_esp_bindings(L);
 
+    // Tune Garbage Collector for memory-constrained embedded environments (Lua 5.4/5.5 API)
+    lua_gc(L, LUA_GCPARAM, LUA_GCPPAUSE, 100);
+    lua_gc(L, LUA_GCPARAM, LUA_GCPSTEPMUL, 500);
+
     if (!set_lua_package_path(L)) {
         status = LUA_ERRRUN;
         goto done;
