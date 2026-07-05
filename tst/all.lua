@@ -1,3 +1,5 @@
+require "test" -- Preload test framework globals so they are not treated as leaked globals and cleaned up
+
 local function print_mem(label)
     local lua_mem = collectgarbage("count")
     local sys_mem = free_heap() / 1024.0
