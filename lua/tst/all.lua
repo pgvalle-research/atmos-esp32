@@ -4,64 +4,41 @@ local function print_mem(label)
     print(string.format("[%s] Memory -> Lua: %.1f KB, System: %.1f KB", label, lua_mem, sys_mem))
 end
 
+local function run_test(name)
+    print("===== " .. name:upper() .. " =====")
+    
+    -- Save snapshot of global variable keys before running the test file
+    local old_globals = {}
+    for k in pairs(_G) do
+        old_globals[k] = true
+    end
+    
+    dofile(name .. ".lua")
+    
+    -- Clean up any global variables leaked or defined by the test file
+    for k in pairs(_G) do
+        if not old_globals[k] then
+            _G[k] = nil
+        end
+    end
+    
+    collectgarbage()
+    collectgarbage() -- Run twice to ensure full collection of cycle dependencies
+    
+    print_mem(name:upper())
+end
+
 print_mem("START")
 
-print "===== PROTO ====="
-dofile "proto.lua"
-collectgarbage()
-print_mem("PROTO")
-
-print "===== TASK ====="
-dofile "task.lua"
-collectgarbage()
-print_mem("TASK")
-
-print "===== AWAIT ====="
-dofile "await.lua"
-collectgarbage()
-print_mem("AWAIT")
-
-print "===== X ====="
-dofile "x.lua"
-collectgarbage()
-print_mem("X")
-
-print "===== TOGGLE ====="
-dofile "toggle.lua"
-collectgarbage()
-print_mem("TOGGLE")
-
-print "===== TASKS ====="
-dofile "tasks.lua"
-collectgarbage()
-print_mem("TASKS")
-
-print "===== ABORT ====="
-dofile "abort.lua"
-collectgarbage()
-print_mem("ABORT")
-
-print "===== OTHERS ====="
-dofile "others.lua"
-collectgarbage()
-print_mem("OTHERS")
-
-print "===== PAR ====="
-dofile "par.lua"
-collectgarbage()
-print_mem("PAR")
-
--- print "===== ERRORS ====="
--- dofile "errors.lua"
--- collectgarbage()
--- print_mem("ERRORS")
-
-print "===== STREAMS ====="
-dofile "streams.lua"
-collectgarbage()
-print_mem("STREAMS")
-
-print "===== ENVS ====="
-dofile "envs.lua"
-collectgarbage()
-print_mem("ENVS")
+run_test("proto")
+run_test("task")
+run_test("await")
+run_test("x")
+run_test("toggle")
+run_test("tasks")
+run_test("abort")
+run_test("others")
+run_test("par")
+-- run_test("errors") -- disabled on ESP32
+run_test("streams")
+run_test("envs")
