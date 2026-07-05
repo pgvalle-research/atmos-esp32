@@ -3,23 +3,23 @@ import shutil
 import sys
 import subprocess
 
-def compile_file(lua_bin, src_path, dest_path):
-    # Compile src_path into dest_path via string.dump in the custom 32-bit interpreter
+def compile_file(lua_bin, src_dir, rel_file_path, dest_path):
+    # Compile rel_file_path into dest_path via string.dump in the custom 32-bit interpreter
     lua_code = (
-        f'local f = assert(loadfile([[{src_path}]])); '
+        f'local f = assert(loadfile([[{rel_file_path}]])); '
         f'local dump = assert(string.dump(f)); '
         f'local out = assert(io.open([[{dest_path}]], "wb")); '
         f'out:write(dump); '
         f'out:close()'
     )
-    subprocess.run([lua_bin, "-e", lua_code], check=True)
+    subprocess.run([lua_bin, "-e", lua_code], cwd=src_dir, check=True)
 
 def main():
     if len(sys.argv) < 4:
         print("Usage: python compile_lua.py <lua_bin> <src_dir> <dest_dir>")
         sys.exit(1)
 
-    lua_bin = sys.argv[1]
+    lua_bin = os.path.abspath(sys.argv[1])
     src_dir = os.path.abspath(sys.argv[2])
     dest_dir = os.path.abspath(sys.argv[3])
 
@@ -41,8 +41,9 @@ def main():
 
             if file.endswith(".lua"):
                 try:
-                    compile_file(lua_bin, src_file, dest_file)
-                    print(f"Compiled to bytecode: {os.path.join(rel_path, file) if rel_path != '.' else file}")
+                    rel_file_path = os.path.relpath(src_file, src_dir)
+                    compile_file(lua_bin, src_dir, rel_file_path, dest_file)
+                    print(f"Compiled to bytecode: {rel_file_path}")
                 except Exception as e:
                     print(f"Failed to compile {src_file}: {e}")
                     sys.exit(1)
