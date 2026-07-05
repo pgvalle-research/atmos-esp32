@@ -15,11 +15,12 @@
 #define LUA_MOUNT_PATH "/lua"
 #define LUA_PARTITION_LABEL "lua"
 #define LUA_CLOCK_PERIOD_US 1000
+#define LUA_ENTRYPOINT "init.lua"
+#define LUA_ENTRYPOINT_PATH LUA_MOUNT_PATH "/" LUA_ENTRYPOINT
 #define LUA_PACKAGE_PATH \
     "package.path = package.path .. ';" \
     LUA_MOUNT_PATH "/?.lua;" \
     LUA_MOUNT_PATH "/?/init.lua'"
-#define LUA_ENTRYPOINT "init.lua"
 
 static TaskHandle_t s_lua_task;
 static esp_timer_handle_t s_clock_timer;
@@ -106,7 +107,7 @@ static void wait_for_clock_tick(void)
     ulTaskNotifyTake(pdTRUE, 0);
 }
 
-static int resume_lua_app(lua_State *L, lua_State *T, const char *script_path)
+static int resume_lua_app(lua_State *L, lua_State *T)
 {
     int nresults = 0;
     int status = lua_resume(T, L, 0, &nresults);
@@ -119,18 +120,15 @@ static int resume_lua_app(lua_State *L, lua_State *T, const char *script_path)
     if (status == LUA_OK) {
         lua_pop(T, nresults);
     } else {
-        ESP_LOGE(TAG, "Error running Lua script '%s': %s", script_path, lua_tostring(T, -1));
+        ESP_LOGE(TAG, "Error running Lua script '%s': %s", LUA_ENTRYPOINT_PATH, lua_tostring(T, -1));
         lua_pop(T, 1);
     }
 
     return status;
 }
 
-static int run_lua_file(const char *file_name)
+static int run_lua_file(void)
 {
-    char script_path[128];
-    snprintf(script_path, sizeof(script_path), LUA_MOUNT_PATH "/%s", file_name);
-
     lua_State *L = luaL_newstate();
     if (L == NULL) {
         ESP_LOGE(TAG, "Failed to create Lua state");
@@ -154,14 +152,14 @@ static int run_lua_file(const char *file_name)
         goto done;
     }
 
-    if (luaL_loadfile(T, script_path) != LUA_OK) {
-        ESP_LOGE(TAG, "Error loading Lua script '%s': %s", script_path, lua_tostring(T, -1));
+    if (luaL_loadfile(T, LUA_ENTRYPOINT_PATH) != LUA_OK) {
+        ESP_LOGE(TAG, "Error loading Lua script '%s': %s", LUA_ENTRYPOINT_PATH, lua_tostring(T, -1));
         lua_pop(T, 1);
         status = LUA_ERRFILE;
     } else {
         s_lua_task = xTaskGetCurrentTaskHandle();
         start_clock_timer();
-        status = resume_lua_app(L, T, script_path);
+        status = resume_lua_app(L, T);
         stop_clock_timer();
         s_lua_task = NULL;
     }
@@ -176,8 +174,8 @@ void app_main(void)
     setvbuf(stdout, NULL, _IONBF, 0);
 
     init_filesystem();
-    ESP_LOGI(TAG, "Running %s/%s", LUA_MOUNT_PATH, LUA_ENTRYPOINT);
-    int status = run_lua_file(LUA_ENTRYPOINT);
+    ESP_LOGI(TAG, "Running %s", LUA_ENTRYPOINT_PATH);
+    int status = run_lua_file();
     ESP_LOGI(TAG, "Lua app exited with status %d", status);
 
     while (1) {
