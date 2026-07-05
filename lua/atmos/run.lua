@@ -4,7 +4,6 @@ require "atmos.util"
 
 local M = {
     TIME = 1,
-    CLOCK = 0,
 }
 
 local task_gc
@@ -721,9 +720,6 @@ end
 
 function M.emit(stk, to, emt, ...)
     M.TIME = M.TIME + 1
-    if type(emt) == 'number' then
-        M.CLOCK = M.CLOCK + emt
-    end
     local ret = xcall(debug.getinfo(2), stk and "emit", emit, M.TIME, fto(M.me(false), to), emt)
     local me = M.me(true)
     if me and me._.status == 'aborted' then
@@ -796,27 +792,8 @@ function M.loop_on(...)
     -- tag-specific catch: break exits the loop, but return (atm-func),
     -- abort, and any other throw still propagate past loop_on
     M.catch('atm-loop', function()
-        if type(t[1]) == 'number' and #t == 1 then
-            local dt = t[1]
-            local deadline = M.CLOCK + dt
-            while true do
-                if M.CLOCK < deadline then
-                    M.await(M.TIME, deadline - M.CLOCK)
-                end
-
-                local late = M.CLOCK - deadline
-                blk(late)
-
-                deadline = deadline + dt
-                if M.CLOCK >= deadline then
-                    local missed = (M.CLOCK - deadline) // dt
-                    deadline = deadline + (missed + 1) * dt
-                end
-            end
-        else
-            while true do
-                blk(M.await(M.TIME, t[1], table.unpack(t, 2, #t)))
-            end
+        while true do
+            blk(M.await(M.TIME, t[1], table.unpack(t, 2, #t)))
         end
     end)
 end
