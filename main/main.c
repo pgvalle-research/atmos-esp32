@@ -22,6 +22,11 @@
     LUA_MOUNT_PATH "/?.lua;" \
     LUA_MOUNT_PATH "/?/init.lua'"
 
+#define LUA_WATCHDOG_YIELD_INTERVAL_US 500000
+#define LUA_WATCHDOG_HOOK_COUNT 10000
+#define LUA_GC_PAUSE_PCT 100
+#define LUA_GC_STEPMUL_PCT 500
+
 static TaskHandle_t s_lua_task;
 static esp_timer_handle_t s_clock_timer;
 
@@ -112,7 +117,7 @@ static uint64_t s_last_yield_time = 0;
 
 static void lua_hook(lua_State *L, lua_Debug *ar) {
     uint64_t now = esp_timer_get_time();
-    if (now - s_last_yield_time > 500000) { // 500ms
+    if (now - s_last_yield_time > LUA_WATCHDOG_YIELD_INTERVAL_US) {
         s_last_yield_time = now;
         vTaskDelay(1);
     }
@@ -138,11 +143,11 @@ static int run_lua_file() {
     register_esp_bindings(L);
 
     s_last_yield_time = esp_timer_get_time();
-    lua_sethook(T, lua_hook, LUA_MASKCOUNT, 10000);
+    lua_sethook(T, lua_hook, LUA_MASKCOUNT, LUA_WATCHDOG_HOOK_COUNT);
 
     // Tune Garbage Collector for memory-constrained embedded environments (Lua 5.4/5.5 API)
-    lua_gc(L, LUA_GCPARAM, LUA_GCPPAUSE, 100);
-    lua_gc(L, LUA_GCPARAM, LUA_GCPSTEPMUL, 500);
+    lua_gc(L, LUA_GCPARAM, LUA_GCPPAUSE, LUA_GC_PAUSE_PCT);
+    lua_gc(L, LUA_GCPARAM, LUA_GCPSTEPMUL, LUA_GC_STEPMUL_PCT);
 
     if (!set_lua_package_path(L)) {
         status = LUA_ERRRUN;
