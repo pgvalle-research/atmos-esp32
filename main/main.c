@@ -60,8 +60,14 @@ static int l_wait_clock(lua_State *L) {
     return lua_yield(L, 0);
 }
 
+static int l_free_heap(lua_State *L) {
+    lua_pushinteger(L, esp_get_free_heap_size());
+    return 1;
+}
+
 static void register_esp_bindings(lua_State *L) {
     lua_register(L, "wait_clock", l_wait_clock);
+    lua_register(L, "free_heap", l_free_heap);
 }
 
 static void init_filesystem() {
