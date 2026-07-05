@@ -129,6 +129,17 @@ static int resume_lua_app(lua_State *L, lua_State *T)
     return status;
 }
 
+static uint64_t s_last_yield_time = 0;
+
+static void lua_hook(lua_State *L, lua_Debug *ar)
+{
+    uint64_t now = esp_timer_get_time();
+    if (now - s_last_yield_time > 50000) { // 50ms
+        s_last_yield_time = now;
+        vTaskDelay(1);
+    }
+}
+
 static int run_lua_file(void)
 {
     lua_State *L = luaL_newstate();
@@ -148,6 +159,9 @@ static int run_lua_file(void)
 
     luaL_openlibs(L);
     register_esp_bindings(L);
+
+    s_last_yield_time = esp_timer_get_time();
+    lua_sethook(T, lua_hook, LUA_MASKCOUNT, 1000);
 
     // Tune Garbage Collector for memory-constrained embedded environments (Lua 5.4/5.5 API)
     lua_gc(L, LUA_GCPARAM, LUA_GCPPAUSE, 100);
