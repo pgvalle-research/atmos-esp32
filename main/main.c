@@ -22,10 +22,10 @@
     LUA_MOUNT_PATH "/?.lua;" \
     LUA_MOUNT_PATH "/?/init.lua'"
 
-#define LUA_WATCHDOG_YIELD_INTERVAL_US 500000
-#define LUA_WATCHDOG_HOOK_COUNT 10000
-#define LUA_GC_PAUSE_PCT 100
-#define LUA_GC_STEPMUL_PCT 500
+#define LUA_WATCHDOG_YIELD_INTERVAL_US 500000 /* Yield CPU to FreeRTOS every 500ms during long Lua runs */
+#define LUA_WATCHDOG_HOOK_COUNT 10000         /* Call hook every 10,000 Lua instructions */
+#define LUA_GC_PAUSE_PCT 100                  /* Start GC cycle as soon as there is garbage (100% of previous size) */
+#define LUA_GC_STEPMUL_PCT 500                /* Run GC 5x faster than allocation rate */
 
 static TaskHandle_t s_lua_task;
 static esp_timer_handle_t s_clock_timer;
