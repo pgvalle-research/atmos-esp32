@@ -6,5 +6,7 @@ function dofile(filename)
     return old_dofile(filename)
 end
 
+package.path = package.path .. ";/lua/tst/?.lua"
+
 local a = require "atmos.env.clock_esp"
 dofile("all.lua")
