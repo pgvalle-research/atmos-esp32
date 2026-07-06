@@ -1,80 +1,71 @@
-local clock = require "atmos.env.clock_esp"
+local clock = require "esp32.clock"
+-- local pins = require "esp32.pins"
 
 local function say(msg)
     print(string.format("[%0.3f] %s", clock.now / _s_, msg))
 end
 
+local function pct(part, total)
+    if total == nil or total == 0 then
+        return 0
+    end
+    return (part / total) * 100
+end
+
+local function say_mem()
+    local m = meminfo()
+    local lua_kb = collectgarbage("count")
+    say(string.format(
+        "mem heap=%.1f%% min=%.1f%% largest=%u internal=%.1f%% stack=%u lua=%.1fKB",
+        pct(m.heap_free, m.heap_total),
+        pct(m.heap_min_free, m.heap_total),
+        m.heap_largest_free,
+        pct(m.internal_free, m.internal_total),
+        m.stack_free,
+        lua_kb
+    ))
+end
+
 loop(function()
-    say("start")
+    -- pins.mode(2, "output")
+    -- pins.mode(4, "input_pullup")
+    -- pins.watch(4, "falling")
 
-    say("await 250ms")
-    await(250 * _ms_)
-    say("after await")
-
-    say("emit/await custom event")
     spawn(task(function()
-        await(200 * _ms_)
-        emit_in("parent", { tag = "button", pin = 0 })
-    end))
-    local button = await("button")
-    say("got button pin=" .. button.pin)
-
-    say("loop_on three ticks")
-    local n = 0
-    local ticker = spawn(task(function()
-        loop_on(300 * _ms_, function(late)
-            n = n + 1
-            say("tick " .. n .. " late=" .. tostring(late))
-            if n == 3 then
-                _break_()
-            end
+        loop_on(5 * _s_, function()
+            say_mem()
         end)
     end))
-    await(ticker)
-    say("loop_on done")
 
-    say("par_any race")
-    local winner = par_any(
-        function()
-            await(200 * _ms_)
-            return "fast"
-        end,
-        function()
-            await(500 * _ms_)
-            return "slow"
-        end
-    )
-    say("par_any winner=" .. winner)
+    -- spawn(task(function()
+    --     loop_on(500 * _ms_, function()
+    --         local value = pins.toggle(2)
+    --         say("pin 2 = " .. value)
+    --     end)
+    -- end))
 
-    say("par_all join")
-    local a, b = par_all(
-        function()
-            await(120 * _ms_)
-            return "A"
-        end,
-        function()
-            await(180 * _ms_)
-            return "B"
-        end
-    )
-    say("par_all results=" .. a .. "," .. b)
+    -- spawn(task(function()
+    --     while true do
+    --         local ev = await({ tag = "pin", pin = 4, edge = "falling" })
+    --         say(string.format("pin %u %s value=%u time=%u", ev.pin, ev.edge, ev.value, ev.time))
+    --     end
+    -- end))
 
-    say("watching cancels body")
-    watching(250 * _ms_,
-        function()
-            say("watching body start")
-            await(1 * _s_)
-            say("watching body should not print")
-        end
-    )
-    say("watching done")
-
-    say("nested task result")
-    local ret = await(task(function()
-        await(100 * _ms_)
-        return "child-ret"
+    spawn(task(function()
+        local n = 0
+        loop_on(1 * _s_, function()
+            say("task 1: " .. n)
+            n = n + 1
+        end)
     end))
-    say("nested task returned=" .. ret)
 
-    say("done")
+    spawn(task(function()
+        local n = 0
+        loop_on(2 * _s_, function()
+            say("task 2: " .. n)
+            n = n + 1
+        end)
+    end))
+
+    await(10000000 * _s_)
 end)

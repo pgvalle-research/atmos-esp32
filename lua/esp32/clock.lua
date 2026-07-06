@@ -4,19 +4,24 @@ local M = {
     now = 0,
 }
 
+local QUANTUM_US = 10000
 local old = math.floor(os.clock() * 1000000)
 
-function M.step ()
+function M.step()
     local now = math.floor(os.clock() * 1000000)
-    if now > old then
-        emit(now - old)
-        M.now = now
-        old = now
+
+    while now >= old + QUANTUM_US do
+        emit(QUANTUM_US)
+        M.now = M.now + QUANTUM_US
+        old = old + QUANTUM_US
     end
 end
 
 M.env = {
     step = M.step,
+    mode = {
+        primary = true,
+    },
 }
 
 atmos.env(M.env)

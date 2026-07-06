@@ -1,10 +1,12 @@
-idf_component_register(SRCS "main.c"
+idf_component_register(SRCS "main.c" "pins_esp.c"
                     INCLUDE_DIRS "."
-                    REQUIRES esp_timer)
+                    REQUIRES esp_timer esp_driver_gpio)
 
 if(NOT CMAKE_BUILD_EARLY_EXPANSION)
     set(HOST_LUA_32 "${CMAKE_BINARY_DIR}/lua_32")
     set(LUA_COMPILED_DIR "${CMAKE_BINARY_DIR}/lua_compiled")
+    set(ATMOS_LUA_DIR "$ENV{HOME}/Projects/atmos-5.5-port/atmos/atmos")
+    set(F_STREAMS_LUA_DIR "$ENV{HOME}/Projects/atmos-5.5-port/f-streams/streams")
 
     # Rule to compile host lua_32 tool
     add_custom_command(
@@ -20,8 +22,10 @@ if(NOT CMAKE_BUILD_EARLY_EXPANSION)
     add_custom_target(compile_lua_bytecode
         COMMAND python "${CMAKE_CURRENT_SOURCE_DIR}/../compile_lua.py"
                 "${HOST_LUA_32}"
-                "${CMAKE_CURRENT_SOURCE_DIR}/../lua"
                 "${LUA_COMPILED_DIR}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/../lua"
+                "atmos=${ATMOS_LUA_DIR}"
+                "streams=${F_STREAMS_LUA_DIR}"
         DEPENDS "${HOST_LUA_32}"
         COMMENT "Compiling Lua source files to 32-bit bytecode"
     )

@@ -4,17 +4,18 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
+#include "esp_heap_caps.h"
 #include "esp_littlefs.h"
 #include "lua.h"
 #include "lualib.h"
 #include "lauxlib.h"
 #include "esp_timer.h"
+#include "pins_esp.h"
 
 #define TAG "lua_atmos"
 
 #define LUA_MOUNT_PATH "/lua"
 #define LUA_PARTITION_LABEL "lua"
-#define LUA_CLOCK_PERIOD_US 1000
 #define LUA_ENTRYPOINT "init.lua"
 #define LUA_ENTRYPOINT_PATH LUA_MOUNT_PATH "/" LUA_ENTRYPOINT
 #define LUA_PACKAGE_PATH \
@@ -27,41 +28,38 @@
 #define LUA_GC_PAUSE_PCT 100                  /* Start GC cycle as soon as there is garbage (100% of previous size) */
 #define LUA_GC_STEPMUL_PCT 500                /* Run GC 5x faster than allocation rate */
 
-static TaskHandle_t s_lua_task;
-static esp_timer_handle_t s_clock_timer;
+static int l_meminfo(lua_State *L) {
+    UBaseType_t stack_words = uxTaskGetStackHighWaterMark(NULL);
 
-static void clock_timer_cb(void *arg) {
-    if (s_lua_task != NULL) {
-        xTaskNotifyGive(s_lua_task);
-    }
-}
+    lua_createtable(L, 0, 9);
 
-static void start_clock_timer() {
-    if (s_clock_timer != NULL) return;
+    lua_pushinteger(L, (lua_Integer)heap_caps_get_total_size(MALLOC_CAP_8BIT));
+    lua_setfield(L, -2, "heap_total");
+    lua_pushinteger(L, (lua_Integer)heap_caps_get_free_size(MALLOC_CAP_8BIT));
+    lua_setfield(L, -2, "heap_free");
+    lua_pushinteger(L, (lua_Integer)heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT));
+    lua_setfield(L, -2, "heap_min_free");
+    lua_pushinteger(L, (lua_Integer)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
+    lua_setfield(L, -2, "heap_largest_free");
 
-    const esp_timer_create_args_t timer_args = {
-        .callback = clock_timer_cb,
-        .name = "atmos_clock",
-    };
+    lua_pushinteger(L, (lua_Integer)heap_caps_get_total_size(MALLOC_CAP_INTERNAL));
+    lua_setfield(L, -2, "internal_total");
+    lua_pushinteger(L, (lua_Integer)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
+    lua_setfield(L, -2, "internal_free");
+    lua_pushinteger(L, (lua_Integer)heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL));
+    lua_setfield(L, -2, "internal_min_free");
+    lua_pushinteger(L, (lua_Integer)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL));
+    lua_setfield(L, -2, "internal_largest_free");
 
-    ESP_ERROR_CHECK(esp_timer_create(&timer_args, &s_clock_timer));
-    ESP_ERROR_CHECK(esp_timer_start_periodic(s_clock_timer, LUA_CLOCK_PERIOD_US));
-}
+    lua_pushinteger(L, (lua_Integer)(stack_words * sizeof(StackType_t)));
+    lua_setfield(L, -2, "stack_free");
 
-static void stop_clock_timer() {
-    if (s_clock_timer == NULL) return;
-
-    ESP_ERROR_CHECK(esp_timer_stop(s_clock_timer));
-    ESP_ERROR_CHECK(esp_timer_delete(s_clock_timer));
-    s_clock_timer = NULL;
-}
-
-static int l_wait_clock(lua_State *L) {
-    return lua_yield(L, 0);
+    return 1;
 }
 
 static void register_esp_bindings(lua_State *L) {
-    lua_register(L, "wait_clock", l_wait_clock);
+    lua_register(L, "meminfo", l_meminfo);
+    register_pins_esp(L);
 }
 
 static void init_filesystem() {
@@ -88,19 +86,9 @@ static bool set_lua_package_path(lua_State *L) {
     return false;
 }
 
-static void wait_for_clock_tick() {
-    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-}
-
 static int resume_lua_app(lua_State *L, lua_State *T) {
     int nresults = 0;
     int status = lua_resume(T, L, 0, &nresults);
-
-    while (status == LUA_YIELD) {
-        wait_for_clock_tick();
-        status = lua_resume(T, L, 0, &nresults);
-    }
-
     if (status == LUA_OK) {
         lua_pop(T, nresults);
     } else {
@@ -159,11 +147,7 @@ static int run_lua_file() {
         lua_pop(T, 1);
         status = LUA_ERRFILE;
     } else {
-        s_lua_task = xTaskGetCurrentTaskHandle();
-        start_clock_timer();
         status = resume_lua_app(L, T);
-        stop_clock_timer();
-        s_lua_task = NULL;
     }
 
 done:

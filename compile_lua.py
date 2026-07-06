@@ -7,18 +7,18 @@ import tempfile
 def to_hex_escaped(binary_data):
     return "".join(f"\\x{b:02x}" for b in binary_data)
 
-def compile_to_bytecode(lua_bin, src_dir, rel_file_path):
+def compile_to_bytecode(lua_bin, cwd, file_path):
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         tmp_name = tmp.name
     try:
         lua_code = (
-            f'local f = assert(loadfile([[{rel_file_path}]])); '
+            f'local f = assert(loadfile([[{file_path}]])); '
             f'local dump = assert(string.dump(f)); '
             f'local out = assert(io.open([[{tmp_name}]], "wb")); '
             f'out:write(dump); '
             f'out:close()'
         )
-        subprocess.run([lua_bin, "-e", lua_code], cwd=src_dir, check=True)
+        subprocess.run([lua_bin, "-e", lua_code], cwd=cwd, check=True)
         with open(tmp_name, "rb") as f:
             bytecode = f.read()
         return bytecode
@@ -26,23 +26,44 @@ def compile_to_bytecode(lua_bin, src_dir, rel_file_path):
         if os.path.exists(tmp_name):
             os.remove(tmp_name)
 
-def get_module_name(rel_path):
+def get_module_name(prefix, rel_path):
     # Map relative path (e.g. "atmos/run.lua") to module name (e.g. "atmos.run")
     parts = rel_path.replace("\\", "/").split("/")
     if parts[-1].endswith(".lua"):
         parts[-1] = parts[-1][:-4]
+    if parts == ["init"] and prefix:
+        return prefix
     if parts[-1] == "init" and len(parts) > 1:
         parts.pop()
+    if prefix:
+        parts.insert(0, prefix)
     return ".".join(parts)
+
+def parse_module_root(spec):
+    if "=" in spec:
+        prefix, path = spec.split("=", 1)
+    else:
+        prefix, path = "", spec
+    return prefix, os.path.abspath(path)
+
+def iter_lua_files(root):
+    for dirpath, dirs, files in os.walk(root):
+        dirs[:] = [d for d in dirs if d not in {".git", "old", "tst", "test", "tests", "exs"}]
+        for file in files:
+            if file.endswith(".lua"):
+                abs_path = os.path.join(dirpath, file)
+                rel_path = os.path.relpath(abs_path, root)
+                yield rel_path, abs_path
 
 def main():
     if len(sys.argv) < 4:
-        print("Usage: python compile_lua.py <lua_bin> <src_dir> <dest_dir>")
+        print("Usage: python compile_lua.py <lua_bin> <dest_dir> <app_src_dir> [<module_prefix=module_src_dir> ...]")
         sys.exit(1)
 
     lua_bin = os.path.abspath(sys.argv[1])
-    src_dir = os.path.abspath(sys.argv[2])
-    dest_dir = os.path.abspath(sys.argv[3])
+    dest_dir = os.path.abspath(sys.argv[2])
+    app_src_dir = os.path.abspath(sys.argv[3])
+    module_roots = [parse_module_root(spec) for spec in sys.argv[4:]]
 
     if os.path.exists(dest_dir):
         shutil.rmtree(dest_dir)
@@ -51,24 +72,22 @@ def main():
     preloads = []
     main_init_bytecode = None
 
-    for root, dirs, files in os.walk(src_dir):
-        rel_path = os.path.relpath(root, src_dir)
-        for file in files:
-            if not file.endswith(".lua"):
-                continue
-            src_file = os.path.join(root, file)
-            rel_file_path = os.path.relpath(src_file, src_dir)
+    for rel_path, abs_path in iter_lua_files(app_src_dir):
+        if rel_path == "init.lua":
+            main_init_bytecode = compile_to_bytecode(lua_bin, app_src_dir, rel_path)
+        else:
+            module_name = get_module_name("", rel_path)
+            bytecode = compile_to_bytecode(lua_bin, app_src_dir, rel_path)
+            preloads.append((module_name, rel_path, bytecode))
 
-            if rel_file_path == "init.lua":
-                # Compile main entrypoint bytecode
-                main_init_bytecode = compile_to_bytecode(lua_bin, src_dir, rel_file_path)
-            else:
-                module_name = get_module_name(rel_file_path)
-                bytecode = compile_to_bytecode(lua_bin, src_dir, rel_file_path)
-                preloads.append((module_name, rel_file_path, bytecode))
+    for prefix, root in module_roots:
+        for rel_path, abs_path in iter_lua_files(root):
+            module_name = get_module_name(prefix, rel_path)
+            bytecode = compile_to_bytecode(lua_bin, root, rel_path)
+            preloads.append((module_name, os.path.join(prefix.replace(".", "/"), rel_path), bytecode))
 
     if main_init_bytecode is None:
-        print("Error: init.lua not found in source directory")
+        print("Error: init.lua not found in app source directory")
         sys.exit(1)
 
     # Build the bundle Lua script preloading modules as precompiled chunks
@@ -103,7 +122,7 @@ def main():
             f'out:write(dump); '
             f'out:close()'
         )
-        subprocess.run([lua_bin, "-e", lua_compile_code], cwd=src_dir, check=True)
+        subprocess.run([lua_bin, "-e", lua_compile_code], cwd=app_src_dir, check=True)
         print(f"Amalgamated bundle successfully created at: {dest_init_lua}")
     except Exception as e:
         print(f"Failed to compile bundled init.lua: {e}")
