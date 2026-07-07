@@ -97,9 +97,9 @@ set(F_STREAMS_LUA_DIR "/path/to/your/cloned/f-streams/streams")
    ```bash
    idf.py -p /dev/ttyUSB0 build flash monitor
    ```
+  *(Replace `/dev/ttyUSB0` with the actual device port of your ESP32).*
 
 ---
-
 
 ## License
 MIT License. See [LICENSE](LICENSE) for details.
