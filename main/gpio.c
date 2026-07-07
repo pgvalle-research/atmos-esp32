@@ -478,7 +478,7 @@ static int l_gpio_next_event(lua_State *L) {
     } else if (ev.type == HW_EVENT_PWM) {
         lua_createtable(L, 0, 3);
 
-        lua_pushliteral(L, "pwm");
+        lua_pushliteral(L, "gpio_fade");
         lua_setfield(L, -2, "tag");
         lua_pushinteger(L, ev.id);
         lua_setfield(L, -2, "channel");

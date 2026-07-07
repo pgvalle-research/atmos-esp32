@@ -30,7 +30,7 @@ local clock, gpio, espnow = esp32.clock, esp32.gpio, esp32.espnow
   * [`espnow.send_reliable`](#espnowsend_reliable)
 * **[4. Atmos Hardware Events](#4-atmos-hardware-events)**
   * [`gpio` Event](#gpio-event)
-  * [`pwm` Event](#pwm-event)
+  * [`gpio_fade` Event](#gpio_fade-event)
   * [`espnow_recv` Event](#espnow_recv-event)
   * [`espnow_send` Event](#espnow_send-event)
 
@@ -150,19 +150,19 @@ Sets the static duty cycle on a configured PWM channel.
   * `duty`: `integer` (Value from `0` to $2^{\text{resolution}} - 1$).
 
 ### `gpio.fade_pwm`
-Triggers a non-blocking hardware duty cycle fade over a duration of time. Once completed, a **[`pwm` event](#pwm-event)** is emitted.
+Triggers a non-blocking hardware duty cycle fade over a duration of time. Once completed, a **[`gpio_fade` event](#gpio_fade-event)** is emitted.
 * **Syntax:** `gpio.fade_pwm(channel, target_duty, duration_ms)`
-* **Cross Reference:** Triggers a **[`pwm` event](#pwm-event)** upon completion.
+* **Cross Reference:** Triggers a **[`gpio_fade` event](#gpio_fade-event)** upon completion.
 * **Example:**
   ```lua
   -- Fade LED on Channel 0 to 100% (8191) over 1000ms, then fade back to 0% over 500ms
   spawn(task(function()
       while true do
           gpio.fade_pwm(0, 8191, 1000)
-          await({ tag = "pwm", channel = 0 })
+          await({ tag = "gpio_fade", channel = 0 })
 
           gpio.fade_pwm(0, 0, 500)
-          await({ tag = "pwm", channel = 0 })
+          await({ tag = "gpio_fade", channel = 0 })
       end
   end))
   ```
@@ -199,17 +199,15 @@ Sends an asynchronous message to the specified MAC address (unicast or broadcast
 ### `espnow.send_reliable`
 Sends a message and suspends the calling coroutine until the target peer acknowledges (ACKs) receipt.
 * **Syntax:** `espnow.send_reliable(mac_str, payload)`
-* **Returns:** `boolean`, `string`
-  1. `success`: `true` if delivered successfully, `false` if delivery failed.
-  2. `status`: `"success"` or `"fail"`.
+* **Returns:** `boolean` (`true` if delivered successfully, `false` if delivery failed).
 * **Cross Reference:** Awaits the **[`espnow_send` event](#espnow_send-event)** matching the target MAC.
 * **Example:**
   ```lua
-  local success, status = espnow.send_reliable("24:0a:c4:05:06:07", "Ping")
+  local success = espnow.send_reliable("24:0a:c4:05:06:07", "Ping")
   if success then
       print("Ping delivered!")
   else
-      print("Delivery failed: " .. status)
+      print("Delivery failed")
   end
   ```
 
@@ -232,12 +230,12 @@ Secondary environments process physical interrupts and emit them as Atmos events
   }
   ```
 
-### `pwm` Event
+### `gpio_fade` Event
 * **Created/Triggered by:** [`gpio.fade_pwm`](#gpiofade_pwm)
 * **Structure:**
   ```lua
   {
-      tag = "pwm",
+      tag = "gpio_fade",
       channel = integer,   -- PWM channel number (0 to 7)
       time = integer       -- Microseconds since boot when fade completed
   }
