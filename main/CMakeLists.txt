@@ -1,6 +1,6 @@
-idf_component_register(SRCS "main.c" "pins_esp.c"
+idf_component_register(SRCS "main.c" "pins_esp.c" "pwm_esp.c" "adc_esp.c"
                     INCLUDE_DIRS "."
-                    REQUIRES esp_timer esp_driver_gpio)
+                    REQUIRES esp_timer esp_driver_gpio esp_driver_ledc esp_adc)
 
 target_compile_definitions(${COMPONENT_LIB} PRIVATE LUA_32BITS=1)
 
