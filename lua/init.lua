@@ -67,6 +67,20 @@ loop(function()
         end
     end))
 
+    -- Task 3: Memory Logger (Logs Free Heap and Lua RAM every 5 seconds)
+    spawn(task(function()
+        while true do
+            local info = meminfo()
+            local lua_mem = collectgarbage("count") * 1024
+            print(string.format("[SYSTEM MEM] Free Heap: %0.1f KB | Min Free Heap: %0.1f KB | Lua RAM: %0.2f KB | Stack Free: %d B",
+                info.heap_free / 1024.0,
+                info.heap_min_free / 1024.0,
+                lua_mem / 1024.0,
+                info.stack_free))
+            await(5 * _s_)
+        end
+    end))
+
     -- Keep main thread alive
     await(10000000 * _s_)
 end)
