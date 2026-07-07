@@ -56,14 +56,8 @@ static int l_meminfo(lua_State *L) {
     return 1;
 }
 
-static int l_get_time(lua_State *L) {
-    lua_pushinteger(L, (lua_Integer)esp_timer_get_time());
-    return 1;
-}
-
 static void register_esp_bindings(lua_State *L) {
     lua_register(L, "meminfo", l_meminfo);
-    lua_register(L, "_esp_get_time", l_get_time);
     register_gpio(L);
     register_espnow(L);
 }
@@ -123,6 +117,7 @@ static int run_lua_file() {
     luaL_requiref(L, LUA_LOADLIBNAME, luaopen_package, 1); lua_pop(L, 1);
     luaL_requiref(L, LUA_COLIBNAME, luaopen_coroutine, 1); lua_pop(L, 1);
     luaL_requiref(L, LUA_TABLIBNAME, luaopen_table, 1); lua_pop(L, 1);
+    luaL_requiref(L, LUA_OSLIBNAME, luaopen_os, 1); lua_pop(L, 1);
     luaL_requiref(L, LUA_STRLIBNAME, luaopen_string, 1); lua_pop(L, 1);
     luaL_requiref(L, LUA_MATHLIBNAME, luaopen_math, 1); lua_pop(L, 1);
     luaL_requiref(L, LUA_DBLIBNAME, luaopen_debug, 1); lua_pop(L, 1);
