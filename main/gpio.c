@@ -1,6 +1,4 @@
-#define LUA_32BITS 1
-
-#include "esp_bindings.h"
+#include "bindings.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -377,7 +375,7 @@ static int l_gpio_setup_pwm(lua_State *L) {
         .speed_mode     = LEDC_LOW_SPEED_MODE,
         .channel        = (ledc_channel_t)channel,
         .timer_sel      = (ledc_timer_t)timer_num,
-        .intr_type      = LEDC_INTR_DISABLE, 
+        .intr_type      = LEDC_INTR_DISABLE,
         .gpio_num       = pin,
         .duty           = 0,
         .hpoint         = 0
@@ -493,7 +491,7 @@ static int l_gpio_next_event(lua_State *L) {
     return 1;
 }
 
-void register_gpio_esp(lua_State *L) {
+void register_gpio(lua_State *L) {
     lua_register(L, "_esp_gpio_mode", l_gpio_mode);
     lua_register(L, "_esp_gpio_read", l_gpio_read);
     lua_register(L, "_esp_gpio_write", l_gpio_write);
