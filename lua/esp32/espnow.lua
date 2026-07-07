@@ -14,11 +14,6 @@ function M.send(mac, data)
     _esp_espnow_send(mac, data)
 end
 
-function M.send_reliable(mac, data)
-    _esp_espnow_send(mac, data)
-    local ev = await({ tag = "espnow_send", mac = mac })
-    return (ev.status == "success")
-end
 
 function M.get_mac()
     return _esp_espnow_get_mac()

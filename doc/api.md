@@ -27,7 +27,6 @@ local clock, gpio, espnow = esp32.clock, esp32.gpio, esp32.espnow
   * [`espnow.get_mac`](#espnowget_mac)
   * [`espnow.add_peer`](#espnowadd_peer)
   * [`espnow.send`](#espnowsend)
-  * [`espnow.send_reliable`](#espnowsend_reliable)
 * **[4. Atmos Hardware Events](#4-atmos-hardware-events)**
   * [`gpio` Event](#gpio-event)
   * [`gpio_fade_pwm` Event](#gpio_fade_pwm-event)
@@ -139,6 +138,13 @@ Reads the raw analog voltage on a pin.
     * `"6db"` or `6`: $0\text{V}$ to $1.75\text{V}$ range.
     * `"12db"` / `"11db"` or `12` / `11`: $0\text{V}$ to $3.3\text{V}$ range (Default).
 * **Returns:** `integer` (Raw reading from `0` to `4095` for 12-bit resolution).
+* > [!WARNING]
+  > **Wi-Fi vs. ADC2 Hardware Conflict Gotcha (ESP32 Limitation)**
+  >
+  > The ESP32's internal Wi-Fi hardware controller shares physical circuitry with the **ADC2** pins. When Wi-Fi (or ESP-NOW) is active, reading from any ADC2 pin will fail or return corrupt noise.
+  >
+  > * **DO NOT USE ADC2 PINS:** GPIO 0, 2, 4, 12, 13, 14, 15, 25, 26, 27.
+  > * **ALWAYS USE ADC1 PINS:** **GPIO 32, 33, 34, 35, 36, 37, 38, 39**. (For example, `gpio.read_adc(34)` is perfectly safe and unaffected by ESP-NOW).
 * **Example:**
   ```lua
   local raw = gpio.read_adc(34, "12db")
@@ -201,19 +207,17 @@ Sends an asynchronous message to the specified MAC address (unicast or broadcast
   * `mac_str`: `string` (Target peer MAC or `"ff:ff:ff:ff:ff:ff"` for broadcast).
   * `payload`: `string` (Message string up to 250 bytes).
 * **Cross Reference:** Triggers an **[`espnow_send` event](#espnow_send-event)** upon packet delivery outcome (immediate for broadcast).
-
-### `espnow.send_reliable`
-Sends a message and suspends the calling coroutine until the target peer acknowledges (ACKs) receipt.
-* **Syntax:** `espnow.send_reliable(mac_str, payload)`
-* **Returns:** `boolean` (`true` if delivered successfully, `false` if delivery failed).
-* **Cross Reference:** Awaits the **[`espnow_send` event](#espnow_send-event)** matching the target MAC.
-* **Example:**
+* **Reliability Check Observation:**
+  This function is non-blocking and fires the packet asynchronously. If you need link-layer delivery confirmation (ensuring the receiver ACKed the packet), you should explicitly `await` the corresponding **[`espnow_send` event](#espnow_send-event)** matching the target MAC:
   ```lua
-  local success = espnow.send_reliable("24:0a:c4:05:06:07", "Ping")
-  if success then
-      print("Ping delivered!")
+  espnow.send(peer_mac, "Hello")
+  
+  -- Suspend explicitly until transmission resolves
+  local ev = await({ tag = "espnow_send", mac = peer_mac })
+  if ev.status == "success" then
+      print("Delivered successfully!")
   else
-      print("Delivery failed")
+      print("Failed to deliver")
   end
   ```
 
@@ -260,7 +264,7 @@ Secondary environments process physical interrupts and emit them as Atmos events
   ```
 
 ### `espnow_send` Event
-* **Created/Triggered by:** [`espnow.send`](#espnowsend) and [`espnow.send_reliable`](#espnowsend_reliable)
+* **Created/Triggered by:** [`espnow.send`](#espnowsend)
 * **Structure:**
   ```lua
   {

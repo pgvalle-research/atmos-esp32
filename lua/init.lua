@@ -33,7 +33,12 @@ loop(function()
             
             -- Blink TX LED during transmission
             gpio.write(LED_TX, true)
-            local acked = espnow.send_reliable(esp8266_mac, "PING")
+            espnow.send(esp8266_mac, "PING")
+            
+            -- Explicitly await delivery ACK matching this target MAC
+            local ev = await({ tag = "espnow_send", mac = esp8266_mac })
+            local acked = (ev.status == "success")
+            
             await(50 * _ms_)
             gpio.write(LED_TX, false)
 
