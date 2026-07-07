@@ -2,6 +2,8 @@ idf_component_register(SRCS "main.c" "pins_esp.c"
                     INCLUDE_DIRS "."
                     REQUIRES esp_timer esp_driver_gpio)
 
+target_compile_definitions(${COMPONENT_LIB} PRIVATE LUA_32BITS=1)
+
 if(NOT CMAKE_BUILD_EARLY_EXPANSION)
     set(HOST_LUA_32 "${CMAKE_BINARY_DIR}/lua_32")
     set(LUA_COMPILED_DIR "${CMAKE_BINARY_DIR}/lua_compiled")

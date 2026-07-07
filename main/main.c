@@ -1,5 +1,3 @@
-#define LUA_32BITS 1
-
 #include <stdio.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
