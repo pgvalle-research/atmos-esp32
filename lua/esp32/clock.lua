@@ -10,9 +10,9 @@ local old = math.floor(os.clock() * 1000000)
 function M.step()
     local now = math.floor(os.clock() * 1000000)
     while now - old >= QUANTUM_US do
-        emit(QUANTUM_US)
         M.now = M.now + QUANTUM_US
         old = old + QUANTUM_US
+        emit(QUANTUM_US)
     end
 end
 
