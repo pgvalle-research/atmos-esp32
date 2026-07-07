@@ -270,10 +270,15 @@ Secondary environments process physical interrupts and emit them as Atmos events
   {
       tag = "espnow_send",
       mac = string,        -- Target peer's MAC address
-      status = string,     -- Transmission result: "success" or "fail"
+      status = string,     -- "success" or "fail"
       time = integer       -- Microseconds since boot when result resolved
   }
   ```
+* > [!IMPORTANT]
+  > **Transmission Status Meaning (Unicast vs. Broadcast)**
+  >
+  > * **Unicast (Specific MAC):** `status = "success"` guarantees that the target device **received** the packet and returned a hardware Link-layer ACK.
+  > * **Broadcast (`"ff:ff:ff:ff:ff:ff"`):** `status = "success"` **only** confirms the packet was successfully **transmitted into the air** by the local antenna. It does **not** indicate whether any receiving device actually captured it.
 
 ---
 
