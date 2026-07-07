@@ -56,8 +56,14 @@ static int l_meminfo(lua_State *L) {
     return 1;
 }
 
+static int l_get_time(lua_State *L) {
+    lua_pushinteger(L, (lua_Integer)esp_timer_get_time());
+    return 1;
+}
+
 static void register_esp_bindings(lua_State *L) {
     lua_register(L, "meminfo", l_meminfo);
+    lua_register(L, "_esp_get_time", l_get_time);
     register_gpio(L);
     register_espnow(L);
 }

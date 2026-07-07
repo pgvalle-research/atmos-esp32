@@ -5,10 +5,10 @@ local M = {
 }
 
 local QUANTUM_US = 10000
-local old = math.floor(os.clock() * 1000000)
+local old = _esp_get_time()
 
 function M.step()
-    local now = math.floor(os.clock() * 1000000)
+    local now = _esp_get_time()
     while now - old >= QUANTUM_US do
         M.now = M.now + QUANTUM_US
         old = old + QUANTUM_US
