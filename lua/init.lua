@@ -4,7 +4,7 @@ local clock, gpio, espnow = esp32.clock, esp32.gpio, esp32.espnow
 -- =========================================================================
 -- CONFIGURATION: Set the MAC Address of your ESP8266 NodeMCU here
 -- =========================================================================
-local esp8266_mac = "84:f3:eb:6e:3e:db" -- Actual ESP8266 NodeMCU MAC from flash logs
+local esp8266_mac = "4c:eb:d6:1f:f3:3d" -- Actual ESP8266 NodeMCU MAC from flash logs
 local LED_PIN = 23                      -- Pin to blink on receiving PONG
 
 loop(function()
