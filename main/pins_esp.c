@@ -1,11 +1,10 @@
-#include "pins_esp.h"
+#include "esp_bindings.h"
 
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
 
 #include "driver/gpio.h"
-#include "esp_err.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
