@@ -81,6 +81,6 @@ loop(function()
         end
     end))
 
-    -- Keep main thread alive
-    await(10000000 * _s_)
+    -- Keep main thread alive indefinitely
+    await(false)
 end)
