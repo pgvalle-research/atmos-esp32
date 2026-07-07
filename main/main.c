@@ -8,7 +8,7 @@
 #include "lualib.h"
 #include "lauxlib.h"
 #include "esp_timer.h"
-#include "pins_esp.h"
+#include "esp_bindings.h"
 
 #define TAG "lua_atmos"
 
@@ -58,6 +58,8 @@ static int l_meminfo(lua_State *L) {
 static void register_esp_bindings(lua_State *L) {
     lua_register(L, "meminfo", l_meminfo);
     register_pins_esp(L);
+    register_pwm_esp(L);
+    register_adc_esp(L);
 }
 
 static void init_filesystem() {
