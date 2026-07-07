@@ -274,11 +274,11 @@ Secondary environments process physical interrupts and emit them as Atmos events
       time = integer       -- Microseconds since boot when result resolved
   }
   ```
-* > [!IMPORTANT]
-  > **Transmission Status Meaning (Unicast vs. Broadcast)**
+* > [!NOTE]
+  > **Transmission Status Semantics (Unicast vs. Broadcast)**
   >
-  > * **Unicast (Specific MAC):** `status = "success"` guarantees that the target device **received** the packet and returned a hardware Link-layer ACK.
-  > * **Broadcast (`"ff:ff:ff:ff:ff:ff"`):** `status = "success"` **only** confirms the packet was successfully **transmitted into the air** by the local antenna. It does **not** indicate whether any receiving device actually captured it.
+  > * **Unicast (Specific MAC):** A `status = "success"` outcome guarantees that the target device **successfully received** the packet and returned a hardware Link-layer ACK.
+  > * **Broadcast (`"ff:ff:ff:ff:ff:ff"`):** A `status = "success"` outcome **only** confirms the packet was successfully **transmitted into the air** by the local antenna. It does **not** indicate whether any remote device actually heard it.
 
 ---
 
