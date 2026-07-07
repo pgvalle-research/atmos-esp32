@@ -96,23 +96,6 @@ static void lua_hook(lua_State *L, lua_Debug *ar) {
     }
 }
 
-static void open_specific_libs(lua_State *L) {
-    static const luaL_Reg lualibs[] = {
-        {LUA_GNAME, luaopen_base},
-        {LUA_LOADLIBNAME, luaopen_package},
-        {LUA_COLIBNAME, luaopen_coroutine},
-        {LUA_TABLIBNAME, luaopen_table},
-        {LUA_STRLIBNAME, luaopen_string},
-        {LUA_MATHLIBNAME, luaopen_math},
-        {LUA_DBLIBNAME, luaopen_debug},
-        {NULL, NULL}
-    };
-    for (const luaL_Reg *lib = lualibs; lib->func; lib++) {
-        luaL_requiref(L, lib->name, lib->func, 1);
-        lua_pop(L, 1);
-    }
-}
-
 static int run_lua_file() {
     lua_State *L = luaL_newstate();
     if (L == NULL) {
@@ -129,7 +112,15 @@ static int run_lua_file() {
         goto done;
     }
 
-    open_specific_libs(L);
+    // Load only specific standard Lua libraries to conserve RAM
+    luaL_requiref(L, LUA_GNAME, luaopen_base, 1); lua_pop(L, 1);
+    luaL_requiref(L, LUA_LOADLIBNAME, luaopen_package, 1); lua_pop(L, 1);
+    luaL_requiref(L, LUA_COLIBNAME, luaopen_coroutine, 1); lua_pop(L, 1);
+    luaL_requiref(L, LUA_TABLIBNAME, luaopen_table, 1); lua_pop(L, 1);
+    luaL_requiref(L, LUA_STRLIBNAME, luaopen_string, 1); lua_pop(L, 1);
+    luaL_requiref(L, LUA_MATHLIBNAME, luaopen_math, 1); lua_pop(L, 1);
+    luaL_requiref(L, LUA_DBLIBNAME, luaopen_debug, 1); lua_pop(L, 1);
+
     register_esp_bindings(L);
 
     lua_sethook(T, lua_hook, LUA_MASKCOUNT, LUA_WATCHDOG_HOOK_COUNT);
