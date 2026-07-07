@@ -14,12 +14,6 @@ function M.write(pin, value)
     return _esp_pin_write(pin, value)
 end
 
-function M.toggle(pin)
-    local value = M.read(pin) == 0 and 1 or 0
-    M.write(pin, value)
-    return value
-end
-
 function M.watch(pin, edge)
     return _esp_pin_watch(pin, edge or "change")
 end
