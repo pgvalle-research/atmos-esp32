@@ -5,8 +5,8 @@ local clock, gpio, espnow = esp32.clock, esp32.gpio, esp32.espnow
 -- CONFIGURATION
 -- =========================================================================
 local esp8266_mac = "4c:eb:d6:1f:f3:3d" -- Actual ESP8266 NodeMCU MAC
-local LED_TX = 23                        -- Blinks on sending PING
-local LED_RX = 22                        -- Blinks on receiving PONG
+local LED_TX = 23                       -- Blinks on sending PING
+local LED_RX = 22                       -- Blinks on receiving PONG
 
 loop(function()
     -- Initialize Pins
@@ -30,15 +30,15 @@ loop(function()
     spawn(task(function()
         while true do
             print(string.format("[%0.3f] Sending PING...", clock.now / _s_))
-            
+
             -- Blink TX LED during transmission
             gpio.write(LED_TX, true)
             espnow.send(esp8266_mac, "PING")
-            
+
             -- Explicitly await delivery ACK matching this target MAC
             local ev = await({ tag = "espnow_send", mac = esp8266_mac })
             local acked = (ev.status == "success")
-            
+
             await(50 * _ms_)
             gpio.write(LED_TX, false)
 
@@ -70,13 +70,12 @@ loop(function()
     -- Task 3: Memory Logger (Logs Free Heap and Lua RAM every 5 seconds)
     spawn(task(function()
         while true do
-            local info = meminfo()
-            local lua_mem = collectgarbage("count") * 1024
-            print(string.format("[SYSTEM MEM] Free Heap: %0.1f KB | Min Free Heap: %0.1f KB | Lua RAM: %0.2f KB | Stack Free: %d B",
-                info.heap_free / 1024.0,
-                info.heap_min_free / 1024.0,
-                lua_mem / 1024.0,
-                info.stack_free))
+            local m = meminfo()
+            print(string.format(
+                "[SYS] Free Heap: %0.1f%% | Min Free Heap: %0.1f%% | Stack Free: %d B",
+                m.heap_free / m.heap_total * 100,
+                m.internal_free / m.internal_total * 100,
+                m.stack_free))
             await(5 * _s_)
         end
     end))
