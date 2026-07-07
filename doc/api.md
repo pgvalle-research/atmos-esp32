@@ -217,9 +217,13 @@ Sends an asynchronous message to the specified MAC address (unicast or broadcast
   if ev.status == "success" then
       print("Delivered successfully!")
   else
-      print("Failed to deliver")
   end
   ```
+* > [!NOTE]
+  > **Transmission Status Semantics (Unicast vs. Broadcast)**
+  >
+  > * **Unicast (Specific MAC):** A subsequent `espnow_send` event returning `status = "success"` guarantees that the target device **successfully received** the packet and returned a hardware Link-layer ACK.
+  > * **Broadcast (`"ff:ff:ff:ff:ff:ff"`):** A subsequent `espnow_send` event returning `status = "success"` **only** confirms the packet was successfully **transmitted into the air** by the local antenna. It does **not** indicate whether any remote device actually heard it.
 
 ---
 
