@@ -9,6 +9,7 @@
 #include "lauxlib.h"
 #include "esp_timer.h"
 #include "bindings.h"
+#include "nvs_flash.h"
 
 #define TAG "lua_atmos"
 
@@ -149,6 +150,14 @@ done:
 
 void app_main(void) {
     setvbuf(stdout, NULL, _IONBF, 0);
+
+    // Initialize NVS (required for Wi-Fi stack)
+    esp_err_t ret = nvs_flash_init();
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        ret = nvs_flash_init();
+    }
+    ESP_ERROR_CHECK(ret);
 
     init_filesystem();
     ESP_LOGI(TAG, "Running %s", LUA_ENTRYPOINT_PATH);

@@ -1,6 +1,6 @@
 idf_component_register(SRCS "main.c" "gpio.c" "espnow.c"
                     INCLUDE_DIRS "."
-                    REQUIRES esp_timer esp_driver_gpio esp_driver_ledc esp_adc esp_wifi esp_event)
+                    REQUIRES esp_timer esp_driver_gpio esp_driver_ledc esp_adc esp_wifi esp_event nvs_flash)
 
 target_compile_definitions(${COMPONENT_LIB} PRIVATE LUA_32BITS=1)
 
