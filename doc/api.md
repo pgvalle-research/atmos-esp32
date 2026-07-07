@@ -78,16 +78,11 @@ Sets the digital state of an output pin.
   ```
 
 ### `gpio.watch`
-Enables hardware interrupts on a pin. Edge transitions are queued and emitted as Atmos events.
+Enables hardware interrupts on a pin. Edge transitions are queued and emitted as **[`gpio` events](#gpio-event)**.
 * **Syntax:** `gpio.watch(pin, edge)`
 * **Arguments:**
   * `edge`: `string` (`"rising"`, `"falling"`, or `"both"`/`"change"`).
-* **Event Dispatched:**
-  * `tag`: `"gpio"`
-  * `pin`: `integer`
-  * `value`: `integer` (`0` or `1`)
-  * `edge`: `string` (`"rising"` or `"falling"`)
-  * `time`: `integer` (timestamp of the transition in microseconds)
+* **Cross Reference:** Configures the hardware to trigger **[`gpio` events](#gpio-event)**.
 * **Example:**
   ```lua
   gpio.mode(4, "input_pullup")
@@ -127,19 +122,11 @@ Sets the static duty cycle on a configured PWM channel.
 * **Syntax:** `gpio.write_pwm(channel, duty)`
 * **Arguments:**
   * `duty`: `integer` (Value from `0` to $2^{\text{resolution}} - 1$).
-* **Example:**
-  ```lua
-  -- Set Channel 0 to 50% duty (with 13-bit resolution, max is 8191)
-  gpio.write_pwm(0, 4095)
-  ```
 
 ### `gpio.fade_pwm`
-Triggers a non-blocking hardware duty cycle fade over a duration of time. Once completed, a `"pwm"` event is emitted.
+Triggers a non-blocking hardware duty cycle fade over a duration of time. Once completed, a **[`pwm` event](#pwm-event)** is emitted.
 * **Syntax:** `gpio.fade_pwm(channel, target_duty, duration_ms)`
-* **Event Dispatched:**
-  * `tag`: `"pwm"`
-  * `channel`: `integer`
-  * `time`: `integer` (timestamp of completion in microseconds)
+* **Cross Reference:** Triggers a **[`pwm` event](#pwm-event)** upon completion.
 * **Example:**
   ```lua
   -- Fade LED on Channel 0 to 100% (8191) over 1000ms, then fade back to 0% over 500ms
@@ -162,6 +149,7 @@ The ESP-NOW module enables low-latency connectionless packet communication over 
 ### `espnow.init`
 Initializes the Wi-Fi Station stack and boots the ESP-NOW communication service.
 * **Syntax:** `espnow.init()`
+* **Cross Reference:** Allows incoming packets to trigger **[`espnow_recv` events](#espnow_recv-event)**.
 
 ### `espnow.get_mac`
 Gets the local MAC address of the board.
@@ -180,6 +168,7 @@ Sends an asynchronous message to the specified MAC address (unicast or broadcast
 * **Arguments:**
   * `mac_str`: `string` (Target peer MAC or `"ff:ff:ff:ff:ff:ff"` for broadcast).
   * `payload`: `string` (Message string up to 250 bytes).
+* **Cross Reference:** Triggers an **[`espnow_send` event](#espnow_send-event)** upon packet delivery outcome (immediate for broadcast).
 
 ### `espnow.send_reliable`
 Sends a message and suspends the calling coroutine until the target peer acknowledges (ACKs) receipt.
@@ -187,6 +176,7 @@ Sends a message and suspends the calling coroutine until the target peer acknowl
 * **Returns:** `boolean`, `string`
   1. `success`: `true` if delivered successfully, `false` if delivery failed.
   2. `status`: `"success"` or `"fail"`.
+* **Cross Reference:** Awaits the **[`espnow_send` event](#espnow_send-event)** matching the target MAC.
 * **Example:**
   ```lua
   local success, status = espnow.send_reliable("24:0a:c4:05:06:07", "Ping")
@@ -197,19 +187,56 @@ Sends a message and suspends the calling coroutine until the target peer acknowl
   end
   ```
 
-### `espnow_recv` Event
-Emitted automatically whenever a packet is received.
-* **Event Fields:**
-  * `tag`: `"espnow_recv"`
-  * `mac`: `string` (MAC address of the sender)
-  * `data`: `string` (Payload data)
-  * `time`: `integer` (timestamp of arrival in microseconds)
-* **Example:**
+---
+
+## 4. Atmos Hardware Events
+
+Secondary environments process physical interrupts and emit them as Atmos events. You can capture them in tasks using the `await()` pattern.
+
+### `gpio` Event
+* **Created/Configured by:** [`gpio.watch`](#gpiowatch)
+* **Structure:**
   ```lua
-  spawn(task(function()
-      while true do
-          local ev = await({ tag = "espnow_recv" })
-          print("Received from " .. ev.mac .. ": " .. ev.data)
-      end
-  end))
+  {
+      tag = "gpio",
+      pin = integer,       -- GPIO pin number
+      value = integer,     -- Pin state: 0 (LOW) or 1 (HIGH)
+      edge = string,       -- "rising" or "falling"
+      time = integer       -- Microseconds since boot of transition
+  }
+  ```
+
+### `pwm` Event
+* **Created/Triggered by:** [`gpio.fade_pwm`](#gpiofade_pwm)
+* **Structure:**
+  ```lua
+  {
+      tag = "pwm",
+      channel = integer,   -- PWM channel number (0 to 7)
+      time = integer       -- Microseconds since boot when fade completed
+  }
+  ```
+
+### `espnow_recv` Event
+* **Allowed/Enabled by:** [`espnow.init`](#espnowinit)
+* **Structure:**
+  ```lua
+  {
+      tag = "espnow_recv",
+      mac = string,        -- Sender's MAC address (e.g. "24:0a:c4:05:06:07")
+      data = string,       -- Received payload data (string)
+      time = integer       -- Microseconds since boot when received
+  }
+  ```
+
+### `espnow_send` Event
+* **Created/Triggered by:** [`espnow.send`](#espnowsend) and [`espnow.send_reliable`](#espnowsend_reliable)
+* **Structure:**
+  ```lua
+  {
+      tag = "espnow_send",
+      mac = string,        -- Target peer's MAC address
+      status = string,     -- Transmission result: "success" or "fail"
+      time = integer       -- Microseconds since boot when result resolved
+  }
   ```
