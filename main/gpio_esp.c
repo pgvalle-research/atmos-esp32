@@ -1,3 +1,5 @@
+#define LUA_32BITS 1
+
 #include "esp_bindings.h"
 
 #include <stdbool.h>
@@ -8,26 +10,27 @@
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
+#include "lua.h"
 #include "lauxlib.h"
 
-#define PIN_EVENT_QUEUE_LEN 32
-#define PIN_MAX_TRACKED 64
+#define GPIO_EVENT_QUEUE_LEN 32
+#define GPIO_MAX_TRACKED 64
 
 typedef struct {
     int pin;
     int value;
     int64_t time_us;
-} pin_event_t;
+} gpio_event_t;
 
-static QueueHandle_t s_pin_event_queue = NULL;
-static bool s_pin_isr_attached[PIN_MAX_TRACKED] = {0};
+static QueueHandle_t s_gpio_event_queue = NULL;
+static bool s_gpio_isr_attached[GPIO_MAX_TRACKED] = {0};
 
 static bool valid_pin(int pin) {
-    return GPIO_IS_VALID_GPIO(pin) && pin < PIN_MAX_TRACKED;
+    return GPIO_IS_VALID_GPIO(pin) && pin < GPIO_MAX_TRACKED;
 }
 
 static bool valid_output_pin(int pin) {
-    return GPIO_IS_VALID_OUTPUT_GPIO(pin) && pin < PIN_MAX_TRACKED;
+    return GPIO_IS_VALID_OUTPUT_GPIO(pin) && pin < GPIO_MAX_TRACKED;
 }
 
 static int check_pin(lua_State *L, int index) {
@@ -49,10 +52,10 @@ static int check_pin_value(lua_State *L, int index) {
     return luaL_checkinteger(L, index) != 0 ? 1 : 0;
 }
 
-static esp_err_t ensure_pin_event_queue(void) {
-    if (s_pin_event_queue == NULL) {
-        s_pin_event_queue = xQueueCreate(PIN_EVENT_QUEUE_LEN, sizeof(pin_event_t));
-        if (s_pin_event_queue == NULL) {
+static esp_err_t ensure_gpio_event_queue(void) {
+    if (s_gpio_event_queue == NULL) {
+        s_gpio_event_queue = xQueueCreate(GPIO_EVENT_QUEUE_LEN, sizeof(gpio_event_t));
+        if (s_gpio_event_queue == NULL) {
             return ESP_ERR_NO_MEM;
         }
     }
@@ -81,26 +84,26 @@ static gpio_int_type_t parse_edge(lua_State *L, int index) {
     return (gpio_int_type_t)luaL_error(L, "invalid edge '%s'", edge);
 }
 
-static void IRAM_ATTR pin_isr_handler(void *arg) {
+static void IRAM_ATTR gpio_isr_handler(void *arg) {
     int pin = (int)(intptr_t)arg;
-    if (s_pin_event_queue == NULL) {
+    if (s_gpio_event_queue == NULL) {
         return;
     }
 
-    pin_event_t ev = {
+    gpio_event_t ev = {
         .pin = pin,
         .value = gpio_get_level((gpio_num_t)pin),
         .time_us = esp_timer_get_time(),
     };
 
     BaseType_t task_woken = pdFALSE;
-    (void)xQueueSendFromISR(s_pin_event_queue, &ev, &task_woken);
+    (void)xQueueSendFromISR(s_gpio_event_queue, &ev, &task_woken);
     if (task_woken == pdTRUE) {
         portYIELD_FROM_ISR();
     }
 }
 
-static int l_pin_mode(lua_State *L) {
+static int l_gpio_mode(lua_State *L) {
     int pin = check_pin(L, 1);
     const char *mode = luaL_checkstring(L, 2);
 
@@ -127,7 +130,7 @@ static int l_pin_mode(lua_State *L) {
         check_output_pin(L, 1);
         conf.mode = GPIO_MODE_OUTPUT_OD;
     } else {
-        return luaL_error(L, "invalid pin mode '%s'", mode);
+        return luaL_error(L, "invalid gpio mode '%s'", mode);
     }
 
     esp_err_t err = gpio_config(&conf);
@@ -138,13 +141,13 @@ static int l_pin_mode(lua_State *L) {
     return 0;
 }
 
-static int l_pin_read(lua_State *L) {
+static int l_gpio_read(lua_State *L) {
     int pin = check_pin(L, 1);
     lua_pushinteger(L, gpio_get_level((gpio_num_t)pin));
     return 1;
 }
 
-static int l_pin_write(lua_State *L) {
+static int l_gpio_write(lua_State *L) {
     int pin = check_output_pin(L, 1);
     int value = check_pin_value(L, 2);
 
@@ -156,13 +159,13 @@ static int l_pin_write(lua_State *L) {
     return 0;
 }
 
-static int l_pin_watch(lua_State *L) {
+static int l_gpio_watch(lua_State *L) {
     int pin = check_pin(L, 1);
     gpio_int_type_t edge = parse_edge(L, 2);
 
-    esp_err_t err = ensure_pin_event_queue();
+    esp_err_t err = ensure_gpio_event_queue();
     if (err != ESP_OK) {
-        return luaL_error(L, "failed to create pin event queue: %s", esp_err_to_name(err));
+        return luaL_error(L, "failed to create gpio event queue: %s", esp_err_to_name(err));
     }
 
     err = ensure_gpio_isr_service();
@@ -175,12 +178,12 @@ static int l_pin_watch(lua_State *L) {
         return luaL_error(L, "gpio_set_intr_type failed: %s", esp_err_to_name(err));
     }
 
-    if (!s_pin_isr_attached[pin]) {
-        err = gpio_isr_handler_add((gpio_num_t)pin, pin_isr_handler, (void *)(intptr_t)pin);
+    if (!s_gpio_isr_attached[pin]) {
+        err = gpio_isr_handler_add((gpio_num_t)pin, gpio_isr_handler, (void *)(intptr_t)pin);
         if (err != ESP_OK) {
             return luaL_error(L, "gpio_isr_handler_add failed: %s", esp_err_to_name(err));
         }
-        s_pin_isr_attached[pin] = true;
+        s_gpio_isr_attached[pin] = true;
     }
 
     err = gpio_intr_enable((gpio_num_t)pin);
@@ -191,7 +194,7 @@ static int l_pin_watch(lua_State *L) {
     return 0;
 }
 
-static int l_pin_unwatch(lua_State *L) {
+static int l_gpio_unwatch(lua_State *L) {
     int pin = check_pin(L, 1);
 
     esp_err_t err = gpio_intr_disable((gpio_num_t)pin);
@@ -199,12 +202,12 @@ static int l_pin_unwatch(lua_State *L) {
         return luaL_error(L, "gpio_intr_disable failed: %s", esp_err_to_name(err));
     }
 
-    if (s_pin_isr_attached[pin]) {
+    if (s_gpio_isr_attached[pin]) {
         err = gpio_isr_handler_remove((gpio_num_t)pin);
         if (err != ESP_OK) {
             return luaL_error(L, "gpio_isr_handler_remove failed: %s", esp_err_to_name(err));
         }
-        s_pin_isr_attached[pin] = false;
+        s_gpio_isr_attached[pin] = false;
     }
 
     err = gpio_set_intr_type((gpio_num_t)pin, GPIO_INTR_DISABLE);
@@ -215,16 +218,16 @@ static int l_pin_unwatch(lua_State *L) {
     return 0;
 }
 
-static int l_pin_next_event(lua_State *L) {
-    pin_event_t ev;
-    if (s_pin_event_queue == NULL || xQueueReceive(s_pin_event_queue, &ev, 0) != pdTRUE) {
+static int l_gpio_next_event(lua_State *L) {
+    gpio_event_t ev;
+    if (s_gpio_event_queue == NULL || xQueueReceive(s_gpio_event_queue, &ev, 0) != pdTRUE) {
         lua_pushnil(L);
         return 1;
     }
 
     lua_createtable(L, 0, 5);
 
-    lua_pushliteral(L, "pin");
+    lua_pushliteral(L, "gpio");
     lua_setfield(L, -2, "tag");
     lua_pushinteger(L, ev.pin);
     lua_setfield(L, -2, "pin");
@@ -238,11 +241,11 @@ static int l_pin_next_event(lua_State *L) {
     return 1;
 }
 
-void register_pins_esp(lua_State *L) {
-    lua_register(L, "_esp_pin_mode", l_pin_mode);
-    lua_register(L, "_esp_pin_read", l_pin_read);
-    lua_register(L, "_esp_pin_write", l_pin_write);
-    lua_register(L, "_esp_pin_watch", l_pin_watch);
-    lua_register(L, "_esp_pin_unwatch", l_pin_unwatch);
-    lua_register(L, "_esp_pin_next_event", l_pin_next_event);
+void register_gpio_esp(lua_State *L) {
+    lua_register(L, "_esp_gpio_mode", l_gpio_mode);
+    lua_register(L, "_esp_gpio_read", l_gpio_read);
+    lua_register(L, "_esp_gpio_write", l_gpio_write);
+    lua_register(L, "_esp_gpio_watch", l_gpio_watch);
+    lua_register(L, "_esp_gpio_unwatch", l_gpio_unwatch);
+    lua_register(L, "_esp_gpio_next_event", l_gpio_next_event);
 }
