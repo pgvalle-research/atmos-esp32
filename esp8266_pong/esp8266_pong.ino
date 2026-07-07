@@ -7,7 +7,7 @@
 // =========================================================================
 // CONFIGURATION: Set the MAC Address of your ESP32 board here
 // =========================================================================
-uint8_t esp32_mac[] = {0x24, 0x0A, 0xC4, 0x05, 0x06, 0x07}; // <--- REPLACE THIS
+uint8_t esp32_mac[] = {0x3c, 0x8a, 0x1f, 0x5d, 0xa3, 0x7c}; // Actual ESP32 MAC
 
 // Send status callback
 void onDataSent(uint8_t *mac_addr, uint8_t sendStatus) {
@@ -15,24 +15,21 @@ void onDataSent(uint8_t *mac_addr, uint8_t sendStatus) {
   Serial.println(sendStatus == 0 ? "SUCCESS" : "FAIL");
 }
 
+volatile bool shouldSendPong = false;
+
 // Receive callback
 void onDataRecv(uint8_t *mac, uint8_t *incomingData, uint8_t len) {
   // Convert incoming payload to string
   char msg[len + 1];
-  memcpy(msg, incomingData, len);
+  memcpy(msg, (const void *)incomingData, len);
   msg[len] = '\0';
 
   Serial.print("Received: ");
   Serial.println(msg);
 
-  // If it's a PING, flash the LED and send back a PONG
+  // If it's a PING, flag it for the loop
   if (strcmp(msg, "PING") == 0) {
-    digitalWrite(LED_PIN, LOW);   // LED ON (active low)
-    delay(100);
-    digitalWrite(LED_PIN, HIGH);  // LED OFF
-
-    // Reply with PONG
-    esp_now_send(esp32_mac, (uint8_t *)"PONG", 4);
+    shouldSendPong = true;
   }
 }
 
@@ -60,5 +57,15 @@ void setup() {
 }
 
 void loop() {
-  // FreeRTOS loop, handled by callbacks
+  if (shouldSendPong) {
+    shouldSendPong = false;
+    
+    digitalWrite(LED_PIN, LOW);   // LED ON (active low)
+    delay(100);
+    digitalWrite(LED_PIN, HIGH);  // LED OFF
+
+    // Reply with PONG
+    esp_now_send(esp32_mac, (uint8_t *)"PONG", 4);
+  }
+  yield();
 }

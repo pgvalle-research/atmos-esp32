@@ -2,15 +2,18 @@ local esp32 = require "esp32"
 local clock, gpio, espnow = esp32.clock, esp32.gpio, esp32.espnow
 
 -- =========================================================================
--- CONFIGURATION: Set the MAC Address of your ESP8266 NodeMCU here
+-- CONFIGURATION
 -- =========================================================================
-local esp8266_mac = "4c:eb:d6:1f:f3:3d" -- Actual ESP8266 NodeMCU MAC from flash logs
-local LED_PIN = 23                      -- Pin to blink on receiving PONG
+local esp8266_mac = "4c:eb:d6:1f:f3:3d" -- Actual ESP8266 NodeMCU MAC
+local LED_TX = 23                        -- Blinks on sending PING
+local LED_RX = 22                        -- Blinks on receiving PONG
 
 loop(function()
-    -- Initialize Pin
-    gpio.mode(LED_PIN, "output")
-    gpio.write(LED_PIN, false)
+    -- Initialize Pins
+    gpio.mode(LED_TX, "output")
+    gpio.mode(LED_RX, "output")
+    gpio.write(LED_TX, false)
+    gpio.write(LED_RX, false)
 
     -- Initialize ESP-NOW
     espnow.init()
@@ -21,14 +24,19 @@ loop(function()
     print("Target ESP8266 MAC: " .. esp8266_mac)
     print("======================================================")
 
-    -- Register the peer
     espnow.add_peer(esp8266_mac)
 
     -- Task 1: Periodic Sender (Sends PING to ESP8266 every 2 seconds)
     spawn(task(function()
         while true do
             print(string.format("[%0.3f] Sending PING...", clock.now / _s_))
+            
+            -- Blink TX LED during transmission
+            gpio.write(LED_TX, true)
             local acked = espnow.send_reliable(esp8266_mac, "PING")
+            await(50 * _ms_)
+            gpio.write(LED_TX, false)
+
             if acked then
                 print("   -> PING delivered successfully (ACK received)!")
             else
@@ -46,10 +54,10 @@ loop(function()
             print(string.format("[%0.3f] Received from %s: '%s'", ev.time / _s_, ev.mac, ev.data))
 
             if ev.data == "PONG" then
-                -- Blink the LED
-                gpio.write(LED_PIN, true)
+                -- Blink RX LED
+                gpio.write(LED_RX, true)
                 await(100 * _ms_)
-                gpio.write(LED_PIN, false)
+                gpio.write(LED_RX, false)
             end
         end
     end))
