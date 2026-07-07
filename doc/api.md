@@ -33,6 +33,9 @@ local clock, gpio, espnow = esp32.clock, esp32.gpio, esp32.espnow
   * [`gpio_fade_pwm` Event](#gpio_fade_pwm-event)
   * [`espnow_recv` Event](#espnow_recv-event)
   * [`espnow_send` Event](#espnow_send-event)
+* **[5. Cross-Device Testing (ESP32 <-> ESP8266)](#5-cross-device-testing-esp32---esp8266)**
+  * [Companion Sketch](#companion-sketch)
+  * [Channel & Power Saving Considerations](#channel--power-saving-considerations)
 
 ---
 
@@ -175,6 +178,9 @@ The ESP-NOW module enables low-latency connectionless packet communication over 
 ### `espnow.init`
 Initializes the Wi-Fi Station stack and boots the ESP-NOW communication service.
 * **Syntax:** `espnow.init()`
+* **Under the hood configurations:**
+  * **Power Saving:** Automatically disables Wi-Fi Power Saving (`WIFI_PS_NONE`). This keeps the radio receiver awake at all times to prevent dropped packets.
+  * **Channel Lock:** Locks the physical Wi-Fi channel to **Channel 1** to ensure matching transmission frequencies with peer devices.
 * **Cross Reference:** Allows incoming packets to trigger **[`espnow_recv` events](#espnow_recv-event)**.
 
 ### `espnow.get_mac`
@@ -264,3 +270,20 @@ Secondary environments process physical interrupts and emit them as Atmos events
       time = integer       -- Microseconds since boot when result resolved
   }
   ```
+
+---
+
+## 5. Cross-Device Testing (ESP32 <-> ESP8266)
+
+The project repository includes a compatible ESP8266 Arduino C++ firmware folder to facilitate testing two-way communication between Atmos devices and standard Arduino platforms.
+
+### Companion Sketch
+Located at [esp8266_pong/esp8266_pong.ino](file:///home/pedro/Projects/idf-extra-components/lua/examples/lua_example/esp8266_pong/esp8266_pong.ino), the sketch implements a responsive ping-pong node:
+* It listens on Wi-Fi channel 1.
+* On receiving `"PING"`, it schedules a reply of `"PONG"` to the configured ESP32 MAC address.
+
+### Channel & Power Saving Considerations
+For ESP-NOW to function reliably:
+1. **Match Wi-Fi Channels:** Ensure both devices are explicitly set to the same Wi-Fi channel (Channel 1 is standard).
+2. **Disable Power Saving:** The receiver device must have Wi-Fi Power Management turned off (`esp_wifi_set_ps(WIFI_PS_NONE)` in ESP-IDF). Otherwise, the radio receiver goes to sleep periodically and will drop incoming frames.
+3. **Defer Transmission in Callbacks:** On ESP8266 Arduino, calling `esp_now_send` directly from inside the `onDataRecv` callback context is unstable. The companion sketch avoids this by setting a volatile flag and executing the transmission within the main `loop()`.
