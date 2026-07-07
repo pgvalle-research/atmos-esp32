@@ -14,8 +14,8 @@
 #include "lua.h"
 #include "lauxlib.h"
 
-#define HW_EVENT_QUEUE_LEN 32
-#define GPIO_MAX_TRACKED 64
+#define HW_EVENT_QUEUE_LEN 16
+#define GPIO_MAX_TRACKED 32
 
 typedef enum {
     HW_EVENT_GPIO,

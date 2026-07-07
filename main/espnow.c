@@ -18,7 +18,7 @@
 #include "lua.h"
 #include "lauxlib.h"
 
-#define ESPNOW_QUEUE_LEN 32
+#define ESPNOW_QUEUE_LEN 16
 #define TAG "espnow_c"
 
 typedef enum {
@@ -268,17 +268,20 @@ static int l_espnow_next_event(lua_State *L) {
              ev.mac[0], ev.mac[1], ev.mac[2], ev.mac[3], ev.mac[4], ev.mac[5]);
 
     if (ev.type == ESPNOW_EVENT_RECV) {
+        // Copy data payload to Lua stack and free C memory immediately to prevent leaks on subsequent OOM errors
+        lua_pushlstring(L, (const char *)ev.data, ev.len);
+        free(ev.data);
+
         lua_createtable(L, 0, 4);
+        lua_insert(L, -2);
+        lua_setfield(L, -2, "data");
+
         lua_pushliteral(L, "espnow_recv");
         lua_setfield(L, -2, "tag");
         lua_pushstring(L, mac_str);
         lua_setfield(L, -2, "mac");
-        lua_pushlstring(L, (const char *)ev.data, ev.len);
-        lua_setfield(L, -2, "data");
         lua_pushinteger(L, (lua_Integer)ev.time_us);
         lua_setfield(L, -2, "time");
-
-        free(ev.data);
     } else if (ev.type == ESPNOW_EVENT_SEND) {
         lua_createtable(L, 0, 4);
         lua_pushliteral(L, "espnow_send");
