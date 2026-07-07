@@ -1,5 +1,5 @@
-local clock = require "esp32.clock"
-local pins = require "esp32.pins"
+local esp32 = require "esp32"
+local clock, gpio = esp32.clock, esp32.gpio
 
 local function say(msg)
     print(string.format("[%0.3f] %s", clock.now / _s_, msg))
@@ -25,27 +25,43 @@ local function say_mem()
 end
 
 loop(function()
-    local toggle = function(pin, ms)
-        pins.mode(pin, "output")
-
-        return function()
-            while true do
-                pins.write(pin, 1)
-                await(ms * _ms_)
-                pins.write(pin, 0)
-                await(ms * _ms_)
-            end
-        end
-    end
-
     spawn(task(function()
         loop_on(5 * _s_, function()
             say_mem()
         end)
     end))
 
-    spawn(task(toggle(23, 500)))
-    spawn(task(toggle(22, 1500)))
+    -- Setup PWM on Pin 23 (LED pin), Channel 0, 5kHz, 13-bit resolution
+    gpio.mode(23, "pwm", 0, 5000, 13)
+    gpio.mode(22, "output")
+
+    -- Periodic ADC reading on GPIO 34 (analog input) every 500ms
+    spawn(task(function()
+        while true do
+            local val = gpio.read_adc(34)
+            say("ADC Pin 34 raw value: " .. tostring(val))
+            await(500 * _ms_)
+        end
+    end))
+
+    -- Fade loop for LED
+    spawn(task(function()
+        while true do
+            say("Fading LED up...")
+            gpio.fade_pwm(0, 8191, 1000) -- Fade to 100% duty (8191) in 1000 ms
+            local ev = await({ tag = "pwm", channel = 0 })
+            say(string.format("LED fade up complete (event time: %u)", ev.time))
+
+            await(200 * _ms_)
+
+            say("Fading LED down...")
+            gpio.fade_pwm(0, 0, 1000) -- Fade to 0 duty in 1000 ms
+            ev = await({ tag = "pwm", channel = 0 })
+            say(string.format("LED fade down complete (event time: %u)", ev.time))
+
+            await(200 * _ms_)
+        end
+    end))
 
     await(10000000 * _s_)
 end)

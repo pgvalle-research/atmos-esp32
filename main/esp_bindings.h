@@ -4,7 +4,5 @@
 #include "lua.h"
 
 void register_gpio_esp(lua_State *L);
-void register_pwm_esp(lua_State *L);
-void register_adc_esp(lua_State *L);
 
 #endif // ESP_BINDINGS_H
