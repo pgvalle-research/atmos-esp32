@@ -1,67 +1,59 @@
 local esp32 = require "esp32"
-local clock, gpio = esp32.clock, esp32.gpio
+local clock, gpio, espnow = esp32.clock, esp32.gpio, esp32.espnow
 
-local function say(msg)
-    print(string.format("[%0.3f] %s", clock.now / _s_, msg))
-end
-
-local function pct(part, total)
-    if total == nil or total == 0 then
-        return 0
-    end
-    return (part / total) * 100
-end
-
-local function say_mem()
-    local m = meminfo()
-    say(string.format(
-        "mem heap=%.1f%% min=%.1f%% largest=%u internal=%.1f%% stack=%u",
-        pct(m.heap_free, m.heap_total),
-        pct(m.heap_min_free, m.heap_total),
-        m.heap_largest_free,
-        pct(m.internal_free, m.internal_total),
-        m.stack_free
-    ))
-end
+-- =========================================================================
+-- CONFIGURATION: Set the MAC Address of your ESP8266 NodeMCU here
+-- =========================================================================
+local esp8266_mac = "84:f3:eb:12:34:56" -- <--- REPLACE WITH YOUR ESP8266 MAC
+local LED_PIN = 23                      -- Pin to blink on receiving PONG
 
 loop(function()
-    spawn(task(function()
-        loop_on(5 * _s_, function()
-            say_mem()
-        end)
-    end))
+    -- Initialize Pin
+    gpio.mode(LED_PIN, "output")
+    gpio.write(LED_PIN, false)
 
-    -- Setup PWM on Pin 23 (LED pin), Channel 0, 5kHz, 13-bit resolution
-    gpio.mode(23, "pwm", 0, 5000, 13)
-    gpio.mode(22, "output")
+    -- Initialize ESP-NOW
+    espnow.init()
+    local my_mac = espnow.get_mac()
+    print("======================================================")
+    print("ESP32 ATMOS RUNNING")
+    print("My MAC Address: " .. my_mac)
+    print("Target ESP8266 MAC: " .. esp8266_mac)
+    print("======================================================")
 
-    -- Periodic ADC reading on GPIO 34 (analog input) every 500ms
+    -- Register the peer
+    espnow.add_peer(esp8266_mac)
+
+    -- Task 1: Periodic Sender (Sends PING to ESP8266 every 2 seconds)
     spawn(task(function()
         while true do
-            local val = gpio.read_adc(34)
-            say("ADC Pin 34 raw value: " .. tostring(val))
-            await(500 * _ms_)
+            print(string.format("[%0.3f] Sending PING...", clock.now / _s_))
+            local acked = espnow.send_reliable(esp8266_mac, "PING")
+            if acked then
+                print("   -> PING delivered successfully (ACK received)!")
+            else
+                print("   -> PING delivery failed (No ACK from ESP8266)")
+            end
+            await(2 * _s_)
         end
     end))
 
-    -- Fade loop for LED
+    -- Task 2: Receiver (Listens for PONG from ESP8266)
     spawn(task(function()
         while true do
-            say("Fading LED up...")
-            gpio.fade_pwm(0, 8191, 1000) -- Fade to 100% duty (8191) in 1000 ms
-            local ev = await({ tag = "gpio_fade_pwm", channel = 0 })
-            say(string.format("LED fade up complete (event time: %u)", ev.time))
+            -- Suspend until a packet arrives specifically from our ESP8266
+            local ev = await({ tag = "espnow_recv", mac = esp8266_mac })
+            print(string.format("[%0.3f] Received from %s: '%s'", ev.time / _s_, ev.mac, ev.data))
 
-            await(200 * _ms_)
-
-            say("Fading LED down...")
-            gpio.fade_pwm(0, 0, 1000) -- Fade to 0 duty in 1000 ms
-            ev = await({ tag = "gpio_fade_pwm", channel = 0 })
-            say(string.format("LED fade down complete (event time: %u)", ev.time))
-
-            await(200 * _ms_)
+            if ev.data == "PONG" then
+                -- Blink the LED
+                gpio.write(LED_PIN, true)
+                await(100 * _ms_)
+                gpio.write(LED_PIN, false)
+            end
         end
     end))
 
+    -- Keep main thread alive
     await(10000000 * _s_)
 end)
