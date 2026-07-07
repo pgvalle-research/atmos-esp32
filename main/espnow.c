@@ -133,6 +133,12 @@ static esp_err_t init_wifi(void) {
     err = esp_wifi_start();
     if (err != ESP_OK) return err;
 
+    err = esp_wifi_set_ps(WIFI_PS_NONE);
+    if (err != ESP_OK) return err;
+
+    err = esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE);
+    if (err != ESP_OK) return err;
+
     return ESP_OK;
 }
 

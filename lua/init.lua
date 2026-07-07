@@ -49,8 +49,8 @@ loop(function()
     -- Task 2: Receiver (Listens for PONG from ESP8266)
     spawn(task(function()
         while true do
-            -- Suspend until any packet arrives
-            local ev = await({ tag = "espnow_recv" })
+            -- Suspend until a packet arrives specifically from our ESP8266
+            local ev = await({ tag = "espnow_recv", mac = esp8266_mac })
             print(string.format("[%0.3f] Received from %s: '%s'", ev.time / _s_, ev.mac, ev.data))
 
             if ev.data == "PONG" then
