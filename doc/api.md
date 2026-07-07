@@ -10,6 +10,32 @@ local clock, gpio, espnow = esp32.clock, esp32.gpio, esp32.espnow
 
 ---
 
+## Table of Contents
+* **[1. esp32.clock](#1-esp32clock)**
+  * [`clock.now`](#clocknow)
+* **[2. esp32.gpio](#2-esp32gpio)**
+  * [`gpio.mode`](#gpiomode)
+  * [`gpio.read`](#gpioread)
+  * [`gpio.write`](#gpiowrite)
+  * [`gpio.watch`](#gpiowatch)
+  * [`gpio.unwatch`](#gpiounwatch)
+  * [`gpio.read_adc`](#gpioread_adc)
+  * [`gpio.write_pwm`](#gpiowrite_pwm)
+  * [`gpio.fade_pwm`](#gpiofade_pwm)
+* **[3. esp32.espnow](#3-esp32espnow)**
+  * [`espnow.init`](#espnowinit)
+  * [`espnow.get_mac`](#espnowget_mac)
+  * [`espnow.add_peer`](#espnowadd_peer)
+  * [`espnow.send`](#espnowsend)
+  * [`espnow.send_reliable`](#espnowsend_reliable)
+* **[4. Atmos Hardware Events](#4-atmos-hardware-events)**
+  * [`gpio` Event](#gpio-event)
+  * [`pwm` Event](#pwm-event)
+  * [`espnow_recv` Event](#espnow_recv-event)
+  * [`espnow_send` Event](#espnow_send-event)
+
+---
+
 ## 1. `esp32.clock`
 The clock module manages logical time and high-precision timing.
 
