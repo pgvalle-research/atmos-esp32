@@ -30,7 +30,7 @@ local clock, gpio, espnow = esp32.clock, esp32.gpio, esp32.espnow
   * [`espnow.send_reliable`](#espnowsend_reliable)
 * **[4. Atmos Hardware Events](#4-atmos-hardware-events)**
   * [`gpio` Event](#gpio-event)
-  * [`gpio_fade` Event](#gpio_fade-event)
+  * [`gpio_fade_pwm` Event](#gpio_fade_pwm-event)
   * [`espnow_recv` Event](#espnow_recv-event)
   * [`espnow_send` Event](#espnow_send-event)
 
@@ -150,19 +150,19 @@ Sets the static duty cycle on a configured PWM channel.
   * `duty`: `integer` (Value from `0` to $2^{\text{resolution}} - 1$).
 
 ### `gpio.fade_pwm`
-Triggers a non-blocking hardware duty cycle fade over a duration of time. Once completed, a **[`gpio_fade` event](#gpio_fade-event)** is emitted.
+Triggers a non-blocking hardware duty cycle fade over a duration of time. Once completed, a **[`gpio_fade_pwm` event](#gpio_fade_pwm-event)** is emitted.
 * **Syntax:** `gpio.fade_pwm(channel, target_duty, duration_ms)`
-* **Cross Reference:** Triggers a **[`gpio_fade` event](#gpio_fade-event)** upon completion.
+* **Cross Reference:** Triggers a **[`gpio_fade_pwm` event](#gpio_fade_pwm-event)** upon completion.
 * **Example:**
   ```lua
   -- Fade LED on Channel 0 to 100% (8191) over 1000ms, then fade back to 0% over 500ms
   spawn(task(function()
       while true do
           gpio.fade_pwm(0, 8191, 1000)
-          await({ tag = "gpio_fade", channel = 0 })
+          await({ tag = "gpio_fade_pwm", channel = 0 })
 
           gpio.fade_pwm(0, 0, 500)
-          await({ tag = "gpio_fade", channel = 0 })
+          await({ tag = "gpio_fade_pwm", channel = 0 })
       end
   end))
   ```
@@ -230,12 +230,12 @@ Secondary environments process physical interrupts and emit them as Atmos events
   }
   ```
 
-### `gpio_fade` Event
+### `gpio_fade_pwm` Event
 * **Created/Triggered by:** [`gpio.fade_pwm`](#gpiofade_pwm)
 * **Structure:**
   ```lua
   {
-      tag = "gpio_fade",
+      tag = "gpio_fade_pwm",
       channel = integer,   -- PWM channel number (0 to 7)
       time = integer       -- Microseconds since boot when fade completed
   }

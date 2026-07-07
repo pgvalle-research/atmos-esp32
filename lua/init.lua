@@ -49,14 +49,14 @@ loop(function()
         while true do
             say("Fading LED up...")
             gpio.fade_pwm(0, 8191, 1000) -- Fade to 100% duty (8191) in 1000 ms
-            local ev = await({ tag = "gpio_fade", channel = 0 })
+            local ev = await({ tag = "gpio_fade_pwm", channel = 0 })
             say(string.format("LED fade up complete (event time: %u)", ev.time))
 
             await(200 * _ms_)
 
             say("Fading LED down...")
             gpio.fade_pwm(0, 0, 1000) -- Fade to 0 duty in 1000 ms
-            ev = await({ tag = "gpio_fade", channel = 0 })
+            ev = await({ tag = "gpio_fade_pwm", channel = 0 })
             say(string.format("LED fade down complete (event time: %u)", ev.time))
 
             await(200 * _ms_)
