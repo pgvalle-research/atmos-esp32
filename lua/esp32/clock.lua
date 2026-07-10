@@ -4,15 +4,14 @@ local M = {
     now = 0,
 }
 
-local QUANTUM_US = 10000
 local old = math.floor(os.clock() * 1000000)
 
 function M.step()
     local now = math.floor(os.clock() * 1000000)
-    while now - old >= QUANTUM_US do
-        M.now = M.now + QUANTUM_US
-        old = old + QUANTUM_US
-        emit(QUANTUM_US)
+    if now > old then
+        emit(now - old)
+        M.now = now
+        old = now
     end
 end
 
