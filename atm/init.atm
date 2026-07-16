@@ -1,0 +1,78 @@
+val esp32 = require "esp32"
+val clock = esp32.clock
+val gpio = esp32.gpio
+val espnow = esp32.espnow
+
+val esp8266_mac = "4c:eb:d6:1f:f3:3d"
+val LED_TX = 23
+val LED_RX = 22
+
+;; Initialize Pins
+gpio.mode(LED_TX, "output")
+gpio.mode(LED_RX, "output")
+gpio.write(LED_TX, false)
+gpio.write(LED_RX, false)
+
+;; Initialize ESP-NOW
+espnow.init()
+val my_mac = espnow.get_mac()
+print("======================================================")
+print("ESP32 ATMOS RUNNING")
+print(string.format("My MAC Address: %s", my_mac))
+print(string.format("Target ESP8266 MAC: %s", esp8266_mac))
+print("======================================================")
+
+espnow.add_peer(esp8266_mac)
+
+;; Task 1: Periodic Sender
+spawn {
+    loop {
+        print(string.format("Sending PING..."))
+        gpio.write(LED_TX, true)
+        espnow.send(esp8266_mac, "PING")
+
+        ;; Explicitly await delivery ACK matching this target MAC
+        val ev = await :espnow_send
+        val acked = (ev.status == "success")
+
+        await 50ms
+        gpio.write(LED_TX, false)
+
+        ifs {
+            acked => {
+                print("   -> PING delivered successfully (ACK received)!")
+            }
+            else => {
+                print("   -> PING delivery failed (No ACK from ESP8266)")
+            }
+        }
+        await 2s
+    }
+}
+
+;; Task 2: Receiver
+spawn {
+    loop {
+        val ev = await :espnow_recv
+        print(string.format("Received from %s: '%s'", ev.mac, ev.data))
+
+        ifs {
+            (ev.data == "PONG") => {
+                gpio.write(LED_RX, true)
+                await 100ms
+                gpio.write(LED_RX, false)
+            }
+        }
+    }
+}
+
+;; Task 3: Memory Logger
+spawn {
+    loop {
+        val m = meminfo()
+        print(string.format("[SYS] Free Heap: %0.1f%% | Min Free Heap: %0.1f%%", (m.heap_free / m.heap_total) * 100, (m.internal_free / m.internal_total) * 100))
+        await 5s
+    }
+}
+
+await(false)
