@@ -5,7 +5,7 @@ idf_component_register(SRCS "main.c" "gpio.c" "espnow.c"
 target_compile_definitions(${COMPONENT_LIB} PRIVATE LUA_32BITS=1)
 
 if(NOT CMAKE_BUILD_EARLY_EXPANSION)
-  set(HOST_LUA_32 "${CMAKE_BINARY_DIR}/lua_32")
+  set(HOST_LUA_32 "${CMAKE_BINARY_DIR}/lua5.5")
   set(LUA_COMPILED_DIR "${CMAKE_BINARY_DIR}/lua_compiled")
   set(ATMOS_LUA_DIR "$ENV{HOME}/Projects/atmos/lua-atmos/atmos")
   set(F_STREAMS_LUA_DIR "$ENV{HOME}/Projects/atmos/f-streams/streams")
@@ -13,11 +13,10 @@ if(NOT CMAKE_BUILD_EARLY_EXPANSION)
 
   # Rule to compile host lua_32 tool
   add_custom_command(
-        OUTPUT "${HOST_LUA_32}" "${CMAKE_BINARY_DIR}/lua5.5"
+        OUTPUT "${HOST_LUA_32}"
         COMMAND gcc -O2 -DLUA_USE_LINUX -DLUA_32BITS -DMAKE_LUA -Wl,-E
                 "${CMAKE_CURRENT_SOURCE_DIR}/../managed_components/espressif__lua/lua/onelua.c"
                 -lm -ldl -o "${HOST_LUA_32}"
-        COMMAND ln -sf lua_32 "${CMAKE_BINARY_DIR}/lua5.5"
         DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/../managed_components/espressif__lua/lua/onelua.c"
         COMMENT "Building 32-bit host Lua interpreter for cross-compiling bytecode"
     )
@@ -33,7 +32,7 @@ if(NOT CMAKE_BUILD_EARLY_EXPANSION)
                 "streams=${F_STREAMS_LUA_DIR}"
                 "atmos-src=${ATMOS_SRC_DIR}"
                 "esp32=${CMAKE_CURRENT_SOURCE_DIR}/../esp32"
-        DEPENDS "${HOST_LUA_32}" "${CMAKE_BINARY_DIR}/lua5.5"
+        DEPENDS "${HOST_LUA_32}"
         COMMENT "Compiling Lua source files to 32-bit bytecode"
     )
 
