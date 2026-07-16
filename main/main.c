@@ -112,16 +112,7 @@ static int run_lua_file() {
         goto done;
     }
 
-    // Load only specific standard Lua libraries to conserve RAM
-    luaL_requiref(L, LUA_GNAME, luaopen_base, 1); lua_pop(L, 1);
-    luaL_requiref(L, LUA_LOADLIBNAME, luaopen_package, 1); lua_pop(L, 1);
-    luaL_requiref(L, LUA_COLIBNAME, luaopen_coroutine, 1); lua_pop(L, 1);
-    luaL_requiref(L, LUA_TABLIBNAME, luaopen_table, 1); lua_pop(L, 1);
-    luaL_requiref(L, LUA_OSLIBNAME, luaopen_os, 1); lua_pop(L, 1);
-    luaL_requiref(L, LUA_STRLIBNAME, luaopen_string, 1); lua_pop(L, 1);
-    luaL_requiref(L, LUA_MATHLIBNAME, luaopen_math, 1); lua_pop(L, 1);
-    luaL_requiref(L, LUA_DBLIBNAME, luaopen_debug, 1); lua_pop(L, 1);
-
+    luaL_openlibs(L);
     register_esp_bindings(L);
 
     lua_sethook(T, lua_hook, LUA_MASKCOUNT, LUA_WATCHDOG_HOOK_COUNT);
