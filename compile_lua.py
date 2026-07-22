@@ -26,6 +26,11 @@ def compile_to_bytecode(lua_bin, cwd, file_path):
         if os.path.exists(tmp_name):
             os.remove(tmp_name)
 
+def write_bytecode(dest_path, bytecode):
+    os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+    with open(dest_path, "wb") as f:
+        f.write(bytecode)
+
 def compile_atm_to_lua(lua_bin, atmos_src_dir, lua_atmos_dir, f_streams_dir, atm_file, dest_lua_file):
     lua_atmos_parent = os.path.dirname(lua_atmos_dir)
     lua_code = (
@@ -148,9 +153,12 @@ def main():
         if rel_path == "init.lua":
             main_init_bytecode = compile_to_bytecode(lua_bin, app_src_dir, rel_path)
         else:
-            module_name = get_module_name("", rel_path)
             bytecode = compile_to_bytecode(lua_bin, app_src_dir, rel_path)
-            preloads.append((module_name, rel_path, bytecode))
+            # Keep application modules as individual files in LittleFS. This lets
+            # Lua's normal file searcher resolve require("foo") as /lua/foo.lua,
+            # including modules translated from foo.atm. Runtime dependencies are
+            # still bundled below because they do not live in the application tree.
+            write_bytecode(os.path.join(dest_dir, rel_path), bytecode)
 
     for prefix, root in module_roots:
         for rel_path, abs_path in iter_lua_files(root):
