@@ -1,0 +1,7 @@
+set Auxiliary = []
+
+func Auxiliary.greeting () {
+    "Hello from auxiliary.atm"
+}
+
+return(Auxiliary)

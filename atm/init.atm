@@ -1,7 +1,10 @@
 val esp32 = require "esp32"
+val auxiliary = require "auxiliary"
 val clock = esp32.clock
 val gpio = esp32.gpio
 val espnow = esp32.espnow
+
+print(auxiliary.greeting())
 
 val esp8266_mac = "4c:eb:d6:1f:f3:3d"
 val LED_TX = 23
