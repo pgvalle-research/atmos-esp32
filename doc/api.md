@@ -394,10 +394,6 @@ Arduino-IRremote yet:
 * `raw` is a hexadecimal string, rather than an integer, to preserve the value
   in the firmware's 32-bit Lua configuration.
 
-These differences do not affect the current BMJ logic: BMJ reads only the Sony
-or Samsung protocol and ordinary 8-bit command field. It does not use address,
-raw data (except for logging), bit count, parity, or repeat metadata.
-
 ---
 
 ## 6. Cross-Device Testing (ESP32 <-> ESP8266)
