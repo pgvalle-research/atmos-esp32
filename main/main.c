@@ -60,6 +60,7 @@ static void register_esp_bindings(lua_State *L) {
     lua_register(L, "meminfo", l_meminfo);
     register_gpio(L);
     register_espnow(L);
+    register_ir(L);
 }
 
 static void init_filesystem() {

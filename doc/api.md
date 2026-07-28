@@ -5,7 +5,7 @@ This document describes the Atmos hardware wrapper libraries for the ESP32. All 
 You can import all modules at once:
 ```lua
 local esp32 = require "esp32"
-local clock, gpio, espnow = esp32.clock, esp32.gpio, esp32.espnow
+local clock, gpio, espnow, ir = esp32.clock, esp32.gpio, esp32.espnow, esp32.ir
 ```
 
 ---
@@ -27,12 +27,17 @@ local clock, gpio, espnow = esp32.clock, esp32.gpio, esp32.espnow
   * [`espnow.get_mac`](#espnowget_mac)
   * [`espnow.add_peer`](#espnowadd_peer)
   * [`espnow.send`](#espnowsend)
-* **[4. Atmos Hardware Events](#4-atmos-hardware-events)**
+* **[4. esp32.ir](#4-esp32ir)**
+  * [`ir.start`](#irstart)
+  * [`ir.stop`](#irstop)
+  * [`ir.stats`](#irstats)
+* **[5. Atmos Hardware Events](#5-atmos-hardware-events)**
   * [`gpio` Event](#gpio-event)
   * [`gpio_fade_pwm` Event](#gpio_fade_pwm-event)
   * [`espnow_recv` Event](#espnow_recv-event)
   * [`espnow_send` Event](#espnow_send-event)
-* **[5. Cross-Device Testing (ESP32 <-> ESP8266)](#5-cross-device-testing-esp32---esp8266)**
+  * [`ir` Event](#ir-event)
+* **[6. Cross-Device Testing (ESP32 <-> ESP8266)](#6-cross-device-testing-esp32---esp8266)**
   * [Companion Sketch](#companion-sketch)
   * [Channel & Power Saving Considerations](#channel--power-saving-considerations)
 
@@ -227,7 +232,52 @@ Sends an asynchronous message to the specified MAC address (unicast or broadcast
 
 ---
 
-## 4. Atmos Hardware Events
+## 4. `esp32.ir`
+
+The IR module receives demodulated remote-control signals through the ESP32 RMT
+peripheral. It currently decodes Sony SIRC and Samsung frames. The module emits
+neutral frame data and does not assign application-specific meanings to commands.
+
+### `ir.start`
+
+Starts the single IR receiver.
+
+* **Syntax:** `ir.start(pin, [options])`
+* **Arguments:**
+  * `pin`: GPIO connected to the IR receiver output.
+  * `options.glitch_ns`: Pulses shorter than this are discarded. Default: `80000`.
+  * `options.idle_ns`: A level lasting this long ends the frame. Default: `15000000`.
+
+```lua
+local ir = require("esp32").ir
+ir.start(15)
+```
+
+### `ir.stop`
+
+Stops the receiver and releases its RMT channel, task, and queues.
+
+* **Syntax:** `ir.stop()`
+
+### `ir.stats`
+
+Returns diagnostic counters:
+
+```lua
+{
+    captured = integer,
+    decoded = integer,
+    invalid = integer,
+    dropped = integer
+}
+```
+
+`invalid` counts captured waveforms that were not valid supported frames.
+`dropped` counts frames lost because an internal queue was full.
+
+---
+
+## 5. Atmos Hardware Events
 
 Secondary environments process physical interrupts and emit them as Atmos events. You can capture them in tasks using the `await()` pattern.
 
@@ -286,7 +336,71 @@ Secondary environments process physical interrupts and emit them as Atmos events
 
 ---
 
-## 5. Cross-Device Testing (ESP32 <-> ESP8266)
+### `ir` Event
+
+Emitted once for each valid decoded IR frame:
+
+```lua
+{
+    tag = "ir",
+    protocol = "sony", -- or "samsung"
+    address = integer,
+    command = integer,
+    raw = "0xAABBCCDD",
+    bits = integer,
+    repeat = boolean,
+    time = integer
+}
+```
+
+`raw` is a hexadecimal string because this firmware configures Lua with
+32-bit integers. The event describes only the received frame; button mappings
+and state machines belong to application code.
+
+```lua
+spawn(task(function()
+    while true do
+        local ev = await({ tag = "ir" })
+        print(ev.protocol, ev.address, ev.command, ev.repeat)
+    end
+end))
+```
+
+### Compatibility and current limitations
+
+The event is intentionally comparable to Arduino-IRremote's
+`IrReceiver.decodedIRData`: it reports a decoded protocol, address, command,
+raw value, bit count, and repeat status. It is not a complete replacement for
+Arduino-IRremote yet:
+
+* Only Sony SIRC (12, 15, and 20 bit) and Samsung32 are decoded.
+* Samsung's ordinary 8-bit command layout is supported. A valid Samsung
+  16-bit command is currently reduced to its first 8 bits.
+* A duplicated Samsung 8-bit address is returned as the complete 16-bit wire
+  value. Arduino-IRremote normally collapses equal address bytes to one byte.
+* The SamsungLG short repeat format used by current Arduino-IRremote is not
+  decoded yet. Full repeated Samsung frames are decoded normally.
+* Repeat detection for complete frames compares equal raw frames received
+  within 120 ms. Arduino-IRremote instead uses protocol-specific preceding-gap
+  limits by default.
+* The default 15 ms RMT idle threshold can merge repeated Sony20 frames whose
+  inter-frame gap is shorter than 15 ms. Single frames and typical Sony12
+  repetitions are unaffected.
+* Samsung inverse-byte parity is not currently reported or rejected.
+* Unknown protocols and malformed frames do not emit events; they increment
+  `ir.stats().invalid`.
+* Only one receiver can be active. Decoded events use a fixed queue of 16;
+  queue overflow increments `ir.stats().dropped`.
+* `raw` is a hexadecimal string, rather than an integer, to preserve the value
+  in the firmware's 32-bit Lua configuration.
+
+These differences do not affect the current BMJ logic: BMJ reads only the Sony
+or Samsung protocol and ordinary 8-bit command field. It does not use address,
+raw data (except for logging), bit count, parity, or repeat metadata.
+
+---
+
+## 6. Cross-Device Testing (ESP32 <-> ESP8266)
 
 The project repository includes a compatible ESP8266 Arduino C++ firmware folder to facilitate testing two-way communication between Atmos devices and standard Arduino platforms.
 
