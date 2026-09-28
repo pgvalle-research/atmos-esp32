@@ -6,27 +6,27 @@ val gpio = esp32.gpio
 ;;; PLACA ;;;
 
 ;; ! os sensores do meio na frente tão ligados com esses "pinos" (não usar) !
-val pins.S0 = VP
-val pins.S1 = VIN
+set pins.S0 = VP
+set pins.S1 = VIN
 ;; ! ^^^^ !
 
-val pins.S2 = 34
-val pins.S3 = 35
-val pins.S4 = 32
-val pins.S5 = 33
-val pins.S6 = 25
-val pins.S7 = 27
-val pins.S8 = 14
+set pins.S2 = 34
+set pins.S3 = 35
+set pins.S4 = 32
+set pins.S5 = 33
+set pins.S6 = 25
+set pins.S7 = 27
+set pins.S8 = 14
 
-val pins.IR_PIN = 15
-val pins.LED_STRIP = 2
+set pins.IR_PIN = 15
+set pins.LED_STRIP = 2
 
-val pins.D26 = 26
-val pins.BTN2 = 12
+set pins.D26 = 26
+set pins.BTN2 = 12
 
-val pins.MA1 = 19
-val pins.MA2 = 18
-val pins.MB1 = 4
-val pins.MB2 = 23
+set pins.MA1 = 19
+set pins.MA2 = 18
+set pins.MB1 = 4
+set pins.MB2 = 23
 
 return(pins)

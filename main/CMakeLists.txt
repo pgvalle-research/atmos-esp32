@@ -8,14 +8,15 @@ target_compile_definitions(${COMPONENT_LIB} PRIVATE LUA_32BITS=1)
 if(NOT CMAKE_BUILD_EARLY_EXPANSION)
   set(HOST_LUA_32 "${CMAKE_BINARY_DIR}/lua5.5")
   set(LUA_COMPILED_DIR "${CMAKE_BINARY_DIR}/lua_compiled")
-  set(ATMOS_LUA_DIR "$ENV{HOME}/Projects/atmos/lua-atmos/atmos")
-  set(F_STREAMS_LUA_DIR "$ENV{HOME}/Projects/atmos/f-streams/streams")
-  set(ATMOS_SRC_DIR "$ENV{HOME}/Projects/atmos/atmos/src")
+  set(ATMOS_LUA_DIR "$ENV{HOME}/Projects/lua-atmos/atmos")
+  set(F_STREAMS_LUA_DIR "$ENV{HOME}/Projects/f-streams/streams")
+  set(ATMOS_SRC_DIR "$ENV{HOME}/Projects/atmos/src")
 
   # Rule to compile host lua_32 tool
   add_custom_command(
         OUTPUT "${HOST_LUA_32}"
-        COMMAND gcc -O2 -DLUA_USE_LINUX -DLUA_32BITS -DMAKE_LUA -Wl,-E
+        COMMAND ${CMAKE_COMMAND} -E env "PATH=/usr/bin:/bin:$ENV{PATH}"
+                gcc -B/usr/bin/ -O2 -DLUA_USE_LINUX -DLUA_32BITS -DMAKE_LUA -Wl,-E
                 "${CMAKE_CURRENT_SOURCE_DIR}/../managed_components/espressif__lua/lua/onelua.c"
                 -lm -ldl -o "${HOST_LUA_32}"
         DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/../managed_components/espressif__lua/lua/onelua.c"

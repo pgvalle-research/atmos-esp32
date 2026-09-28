@@ -2,11 +2,11 @@ set sensors = []
 
 ;;; SENSORES ;;;
 
-val sensors.FESQ = 12
-val sensors.FRENTE = 26
-val sensors.FDIR = 14
+set sensors.FESQ = 12
+set sensors.FRENTE = 26
+set sensors.FDIR = 14
 
-val sensors.sensors = [FEsq, Frente, FDir]
+set sensors.sensors = [FEsq, Frente, FDir]
 
 func sensors.setup() {
     gpio.mode(FESQ, "input")
