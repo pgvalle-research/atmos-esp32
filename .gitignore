@@ -2,3 +2,5 @@ build/
 managed_components/
 sdkconfig
 .cache/
+**__pycache__/
+ext/
