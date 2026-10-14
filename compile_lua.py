@@ -54,7 +54,7 @@ def compile_atm_to_lua(lua_bin, atmos_src_dir, lua_atmos_dir, f_streams_dir, atm
         f"out:write(lua_code); "
         f"out:close();"
     )
-    subprocess.run(["lua5.5", "-e", lua_code], check=True)
+    subprocess.run([lua_bin, "-e", lua_code], check=True)
 
 def get_module_name(prefix, rel_path):
     # Map relative path (e.g. "atmos/run.lua") to module name (e.g. "atmos.run")
