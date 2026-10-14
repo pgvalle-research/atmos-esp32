@@ -1,4 +1,5 @@
 val esp32 = require "esp32"
+;;;
 val auxiliary = require "auxiliary"
 val clock = esp32.clock
 val gpio = esp32.gpio
@@ -79,3 +80,14 @@ spawn {
 }
 
 await(false)
+;;;
+
+val drv = require "ultrat.drv8833"
+drv.setup(2, 0, 0, 0)
+loop {
+    drv.move(0, 0, 1000)
+    drv.move(1023, 0, 1000)
+    meminfo()
+    val m = meminfo()
+    print(string.format("[SYS] Free Heap: %0.1f%% | Min Free Heap: %0.1f%%", (m.heap_free / m.heap_total) * 100, (m.internal_free / m.internal_total) * 100))
+}

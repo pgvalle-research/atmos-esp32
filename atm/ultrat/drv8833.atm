@@ -1,0 +1,47 @@
+set drv8833 = []
+
+val esp32 = require "esp32"
+val gpio = esp32.gpio
+
+;; led control channels
+val LC1 = 0
+val LC2 = 1
+val RC1 = 2
+val RC2 = 3
+
+func drv8833.setup(l1, l2, r1, r2) {
+    gpio.mode(l1, "pwm", LC1, 25000, 10);
+    gpio.mode(l2, "pwm", LC2, 25000, 10);
+    gpio.mode(r1, "pwm", RC1, 25000, 10);
+    gpio.mode(r2, "pwm", RC2, 25000, 10);
+}
+
+func drv8833.stop() {
+    gpio.write_pwm(LC1, 1023)
+    gpio.write_pwm(LC2, 1023)
+    gpio.write_pwm(RC1, 1023)
+    gpio.write_pwm(RC2, 1023)
+}
+
+func drv8833.move(vl, vr, ms) {
+    if vl >= 0 {
+        gpio.write_pwm(LC1, vl)
+        gpio.write_pwm(LC2, 0)
+    } else {
+        gpio.write_pwm(LC1, 0)
+        gpio.write_pwm(LC2, -vl)
+    }
+
+    if vr >= 0 {
+        gpio.write_pwm(RC1, vr)
+        gpio.write_pwm(RC2, 0)
+    } else {
+        gpio.write_pwm(RC1, 0)
+        gpio.write_pwm(RC2, -vr)
+    }
+
+    await(ms * 1ms)
+    drv8833.stop()
+}
+
+return(drv8833)
