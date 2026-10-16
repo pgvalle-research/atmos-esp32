@@ -18,19 +18,19 @@ func drv8833.setup(l1, l2, r1, r2) {
 
 func drv8833.move(vl, vr) {
     if vl >= 0 {
-        gpio.write_pwm(LC1, vl)
+        gpio.write_pwm(LC1, math.min(vl, 1023))
         gpio.write_pwm(LC2, 0)
     } else {
         gpio.write_pwm(LC1, 0)
-        gpio.write_pwm(LC2, -vl)
+        gpio.write_pwm(LC2, math.min(-vl, 1023))
     }
 
     if vr >= 0 {
-        gpio.write_pwm(RC1, vr)
+        gpio.write_pwm(RC1, math.min(vr, 1023))
         gpio.write_pwm(RC2, 0)
     } else {
         gpio.write_pwm(RC1, 0)
-        gpio.write_pwm(RC2, -vr)
+        gpio.write_pwm(RC2, math.min(-vr, 1023))
     }
 }
 
