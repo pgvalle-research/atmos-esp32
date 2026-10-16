@@ -28,10 +28,10 @@ func calculate_error(readings) {
         }
     }
 
-    return match active {
+    return(match active {
         0    => 0
         else => w_sum / active
-    }
+    })
 }
 
 task pid.loop() {
@@ -43,21 +43,23 @@ task pid.loop() {
         await(MS * 1ms) ;; fixed time step recommended for control, determinism
         val readings = read_sensors()
         val err = calculate_error(readings)
- 
+
+        val tgt = err != 0 ;; tricky way to get this tho
+        if tgt != tgt_before {
+            ;; very abstract
+            emit @(parent) (:TARGET [tgt])
+        }
+
         val p = err
         val i = (err * MS) + i_before
         val d = (err - err_before) / MS
         val pid = (KP * p) + (KI * i) + (KD * d)
-        emit(:PID [readings, pid])
-
-        val tgt = if err == 0 => false => true ;; tricky way to get this tho
-        if tgt != tgt_before {
-            ;; very abstract
-            emit(:TARGET [tgt])
-        }
+        emit @(:parent) (:PID [pid, readings])
 
         set err_before = err
         set i_before = i
         set tgt_before = tgt
     }
 }
+
+return(pid)
