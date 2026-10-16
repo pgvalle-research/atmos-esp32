@@ -1,10 +1,10 @@
 set modes = []
 
-val pid = require "pid"
+val Pid = require "pid"
 val drv = require "drv8833"
 
 task modes.i_see_you() {
-    spawn pid.loop()
+    spawn Pid()
     loop on :TARGET [true] {
         watching :TARGET [false] {
             loop {
@@ -18,7 +18,7 @@ task modes.i_see_you() {
 }
 
 task modes.calibration() {
-    spawn pid.loop()
+    spawn Pid()
     loop on :TARGET [true] {
         watching :TARGET [false] {
             loop {
