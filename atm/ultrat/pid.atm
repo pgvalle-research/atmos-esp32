@@ -28,10 +28,8 @@ func calculate_error(readings) {
         }
     }
 
-    return(match active {
-        0    => 0
-        else => w_sum / active
-    })
+    return(if active == 0 => 0
+                          => w_sum / active)
 }
 
 task pid.loop() {
