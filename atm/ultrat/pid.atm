@@ -1,0 +1,63 @@
+set pid = []
+
+val gpio = require "esp32.gpio"
+val drv = require "drv8833"
+val pins = require "pins"
+
+val KP, KI, KD = (450, 0, 0)
+val MS = 10
+
+func read_sensors() {
+    return [gpio.read(pins.S5), 
+            gpio.read(pins.S3),
+            gpio.read(pins.S2),
+            gpio.read(pins.S4),
+            gpio.read(pins.S6),
+            gpio.read(pins.S8)]
+}
+
+func calculate_error(readings) {
+    val weights = [-4, -2, 2, 4]
+    var w_sum = 0
+    var active = 0
+
+    loop i in (1, 4) {
+        if readings@i != 0 {
+            set w_sum = w_sum + weights@i
+            set active = active + 1
+        }
+    }
+
+    return match active {
+        0    => 0
+        else => w_sum / active
+    }
+}
+
+task pid.loop() {
+    var err_before = 0
+    var i_before = 0
+    var tgt_before = false
+
+    loop {
+        await(MS * 1ms) ;; fixed time step recommended for control, determinism
+        val readings = read_sensors()
+        val err = calculate_error(readings)
+ 
+        val p = err
+        val i = (err * MS) + i_before
+        val d = (err - err_before) / MS
+        val pid = (KP * p) + (KI * i) + (KD * d)
+        emit(:PID [readings, pid])
+
+        val tgt = if err == 0 => false => true ;; tricky way to get this tho
+        if tgt != tgt_before {
+            ;; very abstract
+            emit(:TARGET [tgt])
+        }
+
+        set err_before = err
+        set i_before = i
+        set tgt_before = tgt
+    }
+}
