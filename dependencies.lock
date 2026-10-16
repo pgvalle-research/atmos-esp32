@@ -27,5 +27,5 @@ direct_dependencies:
 - espressif/lua
 - joltwallet/littlefs
 manifest_hash: 7195996e9709fc2d2019f3ed28f42a66fcde3232c21392b2c1d72f7d6e093052
-target: esp32s3
+target: esp32
 version: 3.0.0
