@@ -1,4 +1,8 @@
 val esp32 = require "esp32"
+val Fps = require "fps"
+
+spawn Fps()
+
 ;;;
 val auxiliary = require "auxiliary"
 val clock = esp32.clock
