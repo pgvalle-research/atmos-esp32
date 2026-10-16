@@ -1,47 +1,52 @@
-set modes = []
+;; TODO: tasks em maiusculas
+
+val modes = []
 
 val Pid = require "pid"
 val drv = require "drv8833"
 
 task modes.i_see_you() {
     spawn Pid()
-    loop on :TARGET [true] {
-        watching :TARGET [false] {
+    loop {
+        await :TARGET [true]
+        spawn {
             loop {
                 val pid, _ = await :PID
                 if pid == 0 => drv.move(1023, 1023)
                             => drv.move(pid, -pid)
             }
         }
+        await :TARGET [false]
         motors.stop()
     }
 }
 
 task modes.calibration() {
     spawn Pid()
-    loop on :TARGET [true] {
-        watching :TARGET [false] {
+    loop {
+        await :TARGET [true]
+        spawn {
             loop {
                 val pid, _ = await :PID
                 if pid == 0 => drv.stop()
                             => drv.move(-pid, pid)
             }
         }
+        await :TARGET [false]
         motors.stop()
     }
-
 }
 
 task modes.backward() {
-    drv.move_for(1023, 1023, 500)
-    drv.move_for(-1023, 1023, 350)
-    modes.i_see_you()
+    await drv.move_for(1023, 1023, 500ms)
+    await drv.move_for(-1023, 1023, 350ms)
+    await modes.i_see_you()
 }
 
 task modes.whiplash() {
-    drv.move_for(1023, 1023, 300)
-    drv.move_for(1023, -1023, 50)
-    modes.i_see_you()
+    await drv.move_for(1023, 1023, 300ms)
+    await drv.move_for(1023, -1023, 50ms)
+    await modes.i_see_you()
 }
 
 task modes.sharingan() {
@@ -52,7 +57,7 @@ task modes.sharingan() {
     }
 
     await 150ms
-    modes.whiplash()
+    await modes.whiplash()
 }
 
-return(modes)
+modes
