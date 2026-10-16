@@ -1,4 +1,6 @@
-set drv8833 = []
+;; TODO: tasks em maiusculas
+
+val drv8833 = []
 
 val esp32 = require "esp32"
 val gpio = esp32.gpio
@@ -16,6 +18,7 @@ func drv8833.setup(l1, l2, r1, r2) {
     gpio.mode(r2, "pwm", RC2, 25000, 10);
 }
 
+;; TODO: rename
 func drv8833.move(vl, vr) {
     if vl >= 0 {
         gpio.write_pwm(LC1, math.min(vl, 1023))
@@ -41,10 +44,10 @@ func drv8833.stop() {
     gpio.write_pwm(RC2, 1023)
 }
 
-func drv8833.move_for(vl, vr, ms) {
+task drv8833.move_for(vl, vr, t) {
     drv8833.move(vl, vr)
-    await(ms * 1ms)
+    await(t)
     drv8833.stop()
 }
 
-return(drv8833)
+drv8833
