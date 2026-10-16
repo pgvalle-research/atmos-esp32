@@ -1,0 +1,58 @@
+set modes = []
+
+val pid = require "pid"
+val drv = require "drv8833"
+
+task modes.i_see_you() {
+    spawn pid.loop()
+    loop on :TARGET [true] {
+        watching :TARGET [false] {
+            loop {
+                val pid, _ = await :PID
+                if pid == 0 => drv.move(1023, 1023)
+                            => drv.move(pid, -pid)
+            }
+        }
+        motors.stop()
+    }
+}
+
+task modes.calibration() {
+    spawn pid.loop()
+    loop on :TARGET [true] {
+        watching :TARGET [false] {
+            loop {
+                val pid, _ = await :PID
+                if pid == 0 => drv.stop()
+                            => drv.move(-pid, pid)
+            }
+        }
+        motors.stop()
+    }
+
+}
+
+task modes.backward() {
+    drv.move_for(1023, 1023, 500)
+    drv.move_for(-1023, 1023, 350)
+    modes.i_see_you()
+}
+
+task modes.whiplash() {
+    drv.move_for(1023, 1023, 300)
+    drv.move_for(1023, -1023, 50)
+    modes.i_see_you()
+}
+
+task modes.sharingan() {
+    val choice = math.random(1, 2)
+    match choice {
+        1    => drv.move(-900, 900)
+        else => drv.move(900, -900);
+    }
+
+    await 150ms
+    modes.whiplash()
+}
+
+return(modes)
