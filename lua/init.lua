@@ -24,7 +24,7 @@ loop(function()
     -- Spawn tasks
     spawn(Fps)
     spawn(Mem)
-    spawn(modes.i_see_you)
+    -- spawn(modes.i_see_you)
 
     -- Keep main loop alive
     await(false)
