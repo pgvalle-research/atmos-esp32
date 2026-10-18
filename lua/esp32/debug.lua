@@ -26,3 +26,5 @@ M.Mem = task(function()
         ))
     end)
 end)
+
+return M
