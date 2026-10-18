@@ -5,7 +5,21 @@ local pins = require "ultrat.pins"
 local KP, KI, KD = 450, 0, 0
 local MS = 10
 
+local initialized = false
+local function init_sensors()
+    if not initialized then
+        gpio.mode(pins.S5, "input")
+        gpio.mode(pins.S3, "input")
+        gpio.mode(pins.S2, "input")
+        gpio.mode(pins.S4, "input")
+        gpio.mode(pins.S6, "input")
+        gpio.mode(pins.S8, "input")
+        initialized = true
+    end
+end
+
 local function read_sensors()
+    init_sensors()
     return {
         gpio.read(pins.S5),
         gpio.read(pins.S3),

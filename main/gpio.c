@@ -13,9 +13,13 @@
 #include "freertos/queue.h"
 #include "lua.h"
 #include "lauxlib.h"
+#include "soc/soc_caps.h"
 
 #define HW_EVENT_QUEUE_LEN 16
-#define GPIO_MAX_TRACKED 32
+#ifndef SOC_GPIO_PIN_COUNT
+#define SOC_GPIO_PIN_COUNT 48
+#endif
+#define GPIO_MAX_TRACKED SOC_GPIO_PIN_COUNT
 
 typedef enum {
     HW_EVENT_GPIO,
