@@ -31,7 +31,7 @@ if(NOT CMAKE_BUILD_EARLY_EXPANSION)
                 "${CMAKE_CURRENT_SOURCE_DIR}/../lua"
                 "atmos=${ATMOS_LUA_DIR}"
                 "streams=${F_STREAMS_LUA_DIR}"
-                "esp32=${CMAKE_CURRENT_SOURCE_DIR}/../esp32"
+                "esp32=${CMAKE_CURRENT_SOURCE_DIR}/../lua/esp32"
         DEPENDS "${HOST_LUA_32}"
         COMMENT "Compiling Lua source files to 32-bit bytecode"
     )
