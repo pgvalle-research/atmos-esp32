@@ -1,6 +1,6 @@
 local esp32 = require "esp32"
 local clock = esp32.clock
-local Fps = require "ultrat.fps"
+local debug = esp32.debug
 local modes = require "ultrat.modes"
 
 loop(function()
@@ -9,8 +9,8 @@ loop(function()
     print("======================================================")
 
     -- Spawn tasks
-    spawn(Fps)
-    spawn(Mem)
+    spawn(debug.Fps)
+    spawn(debug.Mem)
     spawn(modes.i_see_you)
 
     -- Keep main loop alive

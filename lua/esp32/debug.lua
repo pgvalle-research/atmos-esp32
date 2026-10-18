@@ -1,3 +1,5 @@
+local atmos = require "atmos"
+
 local M = {}
 
 M.Fps = task(function()
