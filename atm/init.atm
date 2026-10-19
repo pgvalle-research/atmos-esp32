@@ -1,0 +1,9 @@
+val debug = require "esp32.debug"
+
+val modes = require "ultrat.modes"
+
+print("hello")
+spawn debug.Mem()
+spawn debug.Fps()
+spawn modes.I_see_you()
+await false

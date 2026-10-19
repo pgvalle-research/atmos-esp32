@@ -1,0 +1,22 @@
+val pins = []
+
+set pins.S2 = 34  ;; frontal direita
+set pins.S3 = 35  ;; frontal esquerda
+set pins.S4 = 32  ;; lateral direita
+set pins.S5 = 33  ;; lateral esquerda
+set pins.S6 = 25  ;; linha esquerda
+set pins.S7 = 27
+set pins.S8 = 14  ;; linha direita
+
+set pins.IR = 15
+set pins.LED_STRIP = 2
+
+set pins.D26 = 26
+set pins.BTN2 = 12
+
+set pins.MA2 = 19
+set pins.MA1 = 18
+set pins.MB1 = 4
+set pins.MB2 = 23
+
+pins

@@ -1,0 +1,62 @@
+val modes = []
+
+val esp32 = require "esp32"
+val Pid = require "ultrat.pid"
+val drv = require "ultrat.drv8833"
+
+task modes.I_see_you() {
+    spawn Pid()
+    loop {
+        await :TARGET [true]
+        spawn {
+            loop {
+                val pid, _ = await :PID
+                if pid == 0 => drv.move(1023, 1023)
+                            => drv.move(pid, -pid)
+            }
+        }
+        await :TARGET [false]
+        motors.stop()
+    }
+}
+
+task modes.Calibration() {
+    spawn Pid()
+    loop {
+        await :TARGET [true]
+        spawn {
+            loop {
+                val pid, _ = await :PID
+                if pid == 0 => drv.stop()
+                            => drv.move(-pid, pid)
+            }
+        }
+        await :TARGET [false]
+        motors.stop()
+    }
+}
+
+task modes.Backwards() {
+    await drv.Move(1023, 1023, 500ms)
+    await drv.Move(-1023, 1023, 350ms)
+    await modes.I_see_you()
+}
+
+task modes.Whiplash() {
+    await drv.Move(1023, 1023, 300ms)
+    await drv.Move(1023, -1023, 50ms)
+    await modes.I_see_you()
+}
+
+task modes.Sharingan() {
+    val choice = math.random(1, 2)
+    match choice {
+        1    => drv.move(-900, 900)
+        else => drv.move(900, -900);
+    }
+
+    await 150ms
+    await modes.Whiplash()
+}
+
+modes

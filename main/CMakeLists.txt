@@ -10,6 +10,7 @@ if(NOT CMAKE_BUILD_EARLY_EXPANSION)
   set(LUA_COMPILED_DIR "${CMAKE_BINARY_DIR}/lua_compiled")
   set(ATMOS_LUA_DIR "${CMAKE_SOURCE_DIR}/ext/lua-atmos/atmos")
   set(F_STREAMS_LUA_DIR "${CMAKE_SOURCE_DIR}/ext/atmos-f-streams/streams")
+  set(ATMOS_SRC_DIR "${CMAKE_SOURCE_DIR}/ext/atmos/src")
 
   # Rule to compile host lua_32 tool
   add_custom_command(
@@ -28,9 +29,11 @@ if(NOT CMAKE_BUILD_EARLY_EXPANSION)
                 python "${CMAKE_CURRENT_SOURCE_DIR}/../compile_lua.py"
                 "${HOST_LUA_32}"
                 "${LUA_COMPILED_DIR}"
-                "${CMAKE_CURRENT_SOURCE_DIR}/../lua"
+                "${CMAKE_CURRENT_SOURCE_DIR}/../atm"
                 "atmos=${ATMOS_LUA_DIR}"
                 "streams=${F_STREAMS_LUA_DIR}"
+                "atmos-src=${ATMOS_SRC_DIR}"
+                "esp32=${CMAKE_CURRENT_SOURCE_DIR}/../lua/esp32"
         DEPENDS "${HOST_LUA_32}"
         COMMENT "Compiling Lua source files to 32-bit bytecode"
     )
