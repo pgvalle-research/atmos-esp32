@@ -6,5 +6,6 @@
 void register_gpio(lua_State *L);
 void register_espnow(lua_State *L);
 void register_ir(lua_State *L);
+void register_preferences(lua_State *L);
 
 #endif // ESP_BINDINGS_H

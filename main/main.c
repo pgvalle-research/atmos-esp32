@@ -61,6 +61,7 @@ static void register_esp_bindings(lua_State *L) {
     register_gpio(L);
     register_espnow(L);
     register_ir(L);
+    register_preferences(L);
 }
 
 static void init_filesystem() {

@@ -1,5 +1,5 @@
 idf_component_register(SRCS "main.c" "gpio.c" "espnow.c"
-                         "ir/ir.c" "ir/decoder.c"
+                         "ir/ir.c" "ir/decoder.c" "preferences.c"
                     INCLUDE_DIRS "."
                     REQUIRES esp_timer esp_driver_gpio esp_driver_ledc esp_driver_rmt esp_adc esp_wifi esp_event nvs_flash)
 

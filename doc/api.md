@@ -31,13 +31,25 @@ local clock, gpio, espnow, ir = esp32.clock, esp32.gpio, esp32.espnow, esp32.ir
   * [`ir.start`](#irstart)
   * [`ir.stop`](#irstop)
   * [`ir.stats`](#irstats)
-* **[5. Atmos Hardware Events](#5-atmos-hardware-events)**
+* **[5. esp32.preferences](#5-esp32preferences)**
+  * [`preferences.begin` / `preferences.open`](#preferencesbegin--preferencesopen)
+  * [`preferences.put_int` / `preferences.putInt`](#preferencesput_int--preferencesputint)
+  * [`preferences.get_int` / `preferences.getInt`](#preferencesget_int--preferencesgetint)
+  * [`preferences.put_bool` / `preferences.putBool`](#preferencesput_bool--preferencesputbool)
+  * [`preferences.get_bool` / `preferences.getBool`](#preferencesget_bool--preferencesgetbool)
+  * [`preferences.put_string` / `preferences.putString`](#preferencesput_string--preferencesputstring)
+  * [`preferences.get_string` / `preferences.getString`](#preferencesget_string--preferencesgetstring)
+  * [`preferences.is_key` / `preferences.isKey`](#preferencesis_key--preferencesiskey)
+  * [`preferences.remove`](#preferencesremove)
+  * [`preferences.clear`](#preferencesclear)
+  * [`preferences.close` / `preferences.end`](#preferencesclose--preferencesend)
+* **[6. Atmos Hardware Events](#6-atmos-hardware-events)**
   * [`gpio` Event](#gpio-event)
   * [`gpio_fade_pwm` Event](#gpio_fade_pwm-event)
   * [`espnow_recv` Event](#espnow_recv-event)
   * [`espnow_send` Event](#espnow_send-event)
   * [`ir` Event](#ir-event)
-* **[6. Cross-Device Testing (ESP32 <-> ESP8266)](#6-cross-device-testing-esp32---esp8266)**
+* **[7. Cross-Device Testing (ESP32 <-> ESP8266)](#7-cross-device-testing-esp32---esp8266)**
   * [Companion Sketch](#companion-sketch)
   * [Channel & Power Saving Considerations](#channel--power-saving-considerations)
 
@@ -277,7 +289,98 @@ Returns diagnostic counters:
 
 ---
 
-## 5. Atmos Hardware Events
+## 5. `esp32.preferences`
+
+The preferences module provides persistent key-value storage in ESP32 Non-Volatile Storage (NVS) flash memory, modeled after Arduino's `Preferences` library. Changes are committed to flash immediately upon write.
+
+Namespaces and keys must be between 1 and 15 characters in length. Both module-level singleton usage and instance/handle usage are supported, as well as both snake_case and Arduino camelCase method names.
+
+### `preferences.begin` / `preferences.open`
+Opens a storage namespace. Sets the active namespace for module-level methods and returns a preferences handle object.
+* **Syntax:** `preferences.begin(namespace, [read_only], [partition])`
+* **Arguments:**
+  * `namespace`: `string` (1 to 15 characters).
+  * `read_only`: `boolean` (Default: `false`).
+  * `partition`: `string` (Optional, defaults to `"nvs"` partition).
+* **Returns:** `Preferences` handle object.
+
+### `preferences.put_int` / `preferences.putInt`
+Stores a 32-bit signed integer in flash and automatically commits.
+* **Syntax:** `preferences.put_int(key, value)` or `handle:put_int(key, value)`
+* **Arguments:**
+  * `key`: `string` (1 to 15 characters).
+  * `value`: `integer` (32-bit signed integer).
+* **Returns:** `boolean` (`true` on success).
+
+### `preferences.get_int` / `preferences.getInt`
+Retrieves a stored integer from flash.
+* **Syntax:** `preferences.get_int(key, [default])` or `handle:get_int(key, [default])`
+* **Arguments:**
+  * `key`: `string` (1 to 15 characters).
+  * `default`: `integer` (Returned if the key is not found. Default: `0`).
+* **Returns:** `integer`
+
+### `preferences.put_bool` / `preferences.putBool`
+Stores a boolean in flash and commits.
+* **Syntax:** `preferences.put_bool(key, value)`
+
+### `preferences.get_bool` / `preferences.getBool`
+Retrieves a stored boolean from flash.
+* **Syntax:** `preferences.get_bool(key, [default])` (Default: `false`).
+
+### `preferences.put_string` / `preferences.putString`
+Stores a string in flash and commits.
+* **Syntax:** `preferences.put_string(key, value)`
+
+### `preferences.get_string` / `preferences.getString`
+Retrieves a stored string from flash.
+* **Syntax:** `preferences.get_string(key, [default])` (Default: `""`).
+
+### `preferences.is_key` / `preferences.isKey`
+Checks if a key exists in the current namespace.
+* **Syntax:** `preferences.is_key(key)`
+* **Returns:** `boolean`
+
+### `preferences.remove`
+Removes a specific key from flash and commits.
+* **Syntax:** `preferences.remove(key)`
+* **Returns:** `boolean`
+
+### `preferences.clear`
+Erases all keys in the open namespace and commits.
+* **Syntax:** `preferences.clear()`
+* **Returns:** `boolean`
+
+### `preferences.close` / `preferences.end`
+Closes the open namespace handle and releases resources.
+* **Syntax:** `preferences.close()` or `handle:close()` (or `preferences["end"]()`).
+
+### Example: Storing and Loading 3 Integers
+```lua
+local esp32 = require "esp32"
+local prefs = esp32.preferences
+
+-- Open namespace "app" in read/write mode
+prefs.begin("app")
+
+-- Save 3 integers separately
+prefs.put_int("cmd_start", 100)
+prefs.put_int("cmd_stop", 200)
+prefs.put_int("cmd_prepare", 300)
+
+-- Read them back (with default 0 if not previously stored)
+local start_cmd   = prefs.get_int("cmd_start", 0)
+local stop_cmd    = prefs.get_int("cmd_stop", 0)
+local prepare_cmd = prefs.get_int("cmd_prepare", 0)
+
+print("Loaded commands:", start_cmd, stop_cmd, prepare_cmd)
+
+prefs.close()
+```
+
+---
+
+## 6. Atmos Hardware Events
 
 Secondary environments process physical interrupts and emit them as Atmos events. You can capture them in tasks using the `await()` pattern.
 
