@@ -1,18 +1,32 @@
-val modes = []
-
 val esp32 = require "esp32"
 val Pid = require "ultrat.pid"
 val drv = require "ultrat.drv8833"
 
-task modes.I_see_you() {
+val M = []
+
+task M.Select() {
+    var mode = 0
+    loop ir on :ir {
+        ;; if command is start then stop loop
+        ;;;
+        set mode = match ... {
+        
+        }
+        ;;;
+    }
+
+    mode
+}
+
+task ISeeYou() {
     spawn Pid()
     loop {
         await :TARGET [true]
         spawn {
             loop {
                 val pid, _ = await :PID
-                if pid == 0 => drv.move(1023, 1023)
-                            => drv.move(pid, -pid)
+                if pid == 0 => drv.set(1023, 1023)
+                            => drv.set(pid, -pid)
             }
         }
         await :TARGET [false]
@@ -20,15 +34,15 @@ task modes.I_see_you() {
     }
 }
 
-task modes.Calibration() {
+task Calibration() {
     spawn Pid()
     loop {
         await :TARGET [true]
         spawn {
             loop {
                 val pid, _ = await :PID
-                if pid == 0 => drv.stop()
-                            => drv.move(-pid, pid)
+                if pid == 0 => drv.reset()
+                            => drv.set(pid, -pid)
             }
         }
         await :TARGET [false]
@@ -36,27 +50,35 @@ task modes.Calibration() {
     }
 }
 
-task modes.Backwards() {
+task Backwards() {
     await drv.Move(1023, 1023, 500ms)
     await drv.Move(-1023, 1023, 350ms)
     await modes.I_see_you()
 }
 
-task modes.Whiplash() {
+task Whiplash() {
     await drv.Move(1023, 1023, 300ms)
     await drv.Move(1023, -1023, 50ms)
     await modes.I_see_you()
 }
 
-task modes.Sharingan() {
+task Sharingan() {
     val choice = math.random(1, 2)
     match choice {
         1    => drv.move(-900, 900)
-        else => drv.move(900, -900);
+        else => drv.move(900, -900)
     }
 
     await 150ms
     await modes.Whiplash()
 }
 
-modes
+task M.Run(mode) {
+    ;;;
+    match mode {
+        ...
+    }
+    ;;;
+}
+
+M

@@ -1,0 +1,43 @@
+val esp = require "esp32"
+val gpio = esp.gpio
+
+val M = []
+
+set M.S2 = 34
+set M.S3 = 35
+set M.S4 = 32
+set M.S5 = 33
+set M.S6 = 25
+set M.S7 = 27
+set M.S8 = 14
+
+set M.IR_PIN = 15
+set M.LED_STRIP = 2
+
+set M.D26 = 26
+set M.BTN2 = 12
+
+set M.MA2 = 19
+set M.MA1 = 18
+set M.MB1 = 4
+set M.MB2 = 23
+
+set M.S_ESQ = M.S7
+set M.S_FESQ = M.S3
+set M.S_FDIR = M.D26
+set M.S_DIR = M.S8
+
+task M.BlinkLed(gpio_pin, n, time_on, time_off) {
+    gpio.mode(gpio_pin, "output")
+    loop i {
+        gpio.write(gpio_pin, true)
+        await(time_on)
+        gpio.write(gpio_pin, false)
+        await(time_off)
+
+        ;; n <= 0 -> blink indefinetely
+        if i == n => break()
+    }
+}
+
+M

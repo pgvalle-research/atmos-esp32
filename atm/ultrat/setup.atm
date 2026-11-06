@@ -1,0 +1,74 @@
+val esp = require "esp32"
+val prefs = esp.preferences
+val gpio = esp.gpio
+val board = require "ultrat.board"
+
+val M = []
+set M.startCmd = 0
+set M.stopCmd = 0
+set M.prepareCmd = 0
+
+val LEARN_PIN = 0
+val LEARN_TIMEOUT_MS = 10000ms
+
+task AwaitButton() {
+    var cmd = 0
+    watching LEARN_TIMEOUT_MS {
+        loop {
+            while(cmd == 0 || cmd == M.startCmd || cmd == M.stopCmd || cmd == M.prepareCmd)
+            val sta = await :ir [repeat=false]
+            set cmd = sta.command
+        }
+    }
+
+    if cmd == 0 => print("Timeout. Learning stoped. Try again")
+                => print("got " .. cmd)
+
+    cmd
+}
+
+func printCommands() {
+    print("start: " ++ M.startCmd)
+    print("stop: " ++ M.stopCmd)
+    print("prepare: " ++ M.prepareCmd)
+}
+
+func saveCommands() {
+    prefs.begin("commands")
+    prefs.put_int("start", sta.command)
+    prefs.put_int("start", pre.command)
+    prefs.put_int("stop", sto.command)
+    prefs.end()
+}
+
+task M.Start() {
+    prefs.begin("commands")
+
+    ;; learning
+    if gpio.read(LEARN_PIN) == true {
+        print("Boot pressed. Learning mode")
+
+        ;; start command
+        print("awaiting start cmd")
+        val sta = await AwaitButton()
+        if cmd == 0 => return
+                    => set M.startCmd = cmd
+
+        ;; prepare command
+        print("waiting for prepare command")
+        val cmd = await AwaitButton()
+        if cmd == 0 => return
+                    => set M.startCmd = cmd
+
+        ;; stop command
+        print("waiting for stop command")
+        val sto = await :ir [repeat=false]
+
+        saveCommands()
+        print("cmd codes saved")
+    } else {
+        ;; load saved
+    }
+}
+
+M

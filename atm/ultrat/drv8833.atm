@@ -1,7 +1,7 @@
-val drv8833 = []
-
 val esp32 = require "esp32"
 val gpio = esp32.gpio
+
+val drv8833 = []
 
 ;; led control channels
 val LC1 = 0
@@ -16,8 +16,8 @@ func drv8833.setup(l1, l2, r1, r2) {
     gpio.mode(r2, "pwm", RC2, 25000, 10);
 }
 
-task drv8833.Move(vl, vr, dt) {
-    ;; set velocity on left
+func drv8833.set(vl, vr) {
+    ;; left
     if vl >= 0 {
         gpio.write_pwm(LC1, math.min(vl, 1023))
         gpio.write_pwm(LC2, 0)
@@ -33,14 +33,19 @@ task drv8833.Move(vl, vr, dt) {
         gpio.write_pwm(RC1, 0)
         gpio.write_pwm(RC2, math.min(-vr, 1023))
     }
+}
 
-    await(dt)
-
-    ;; stop 
+func drv8833.reset() {
     gpio.write_pwm(LC1, 1023)
     gpio.write_pwm(LC2, 1023)
     gpio.write_pwm(RC1, 1023)
     gpio.write_pwm(RC2, 1023)
+}
+
+task drv8833.Move(vl, vr, dt) {
+    drv8833.set(vl, vr)
+    await(dt)
+    drv8833.reset()
 }
 
 drv8833
