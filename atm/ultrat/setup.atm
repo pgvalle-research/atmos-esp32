@@ -38,7 +38,7 @@ func saveCommands() {
     prefs.put_int("start", M.startCmd)
     prefs.put_int("prepare", M.prepareCmd)
     prefs.put_int("stop", M.stopCmd)
-    prefs.end()
+    prefs.close()
 }
 
 set M.Start = task () {

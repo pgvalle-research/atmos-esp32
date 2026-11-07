@@ -127,16 +127,6 @@ local function wrap_instance(ud)
         return true
     end
 
-    -- Arduino Preferences aliases
-    obj.putInt    = obj.put_int
-    obj.getInt    = obj.get_int
-    obj.putBool   = obj.put_bool
-    obj.getBool   = obj.get_bool
-    obj.putString = obj.put_string
-    obj.getString = obj.get_string
-    obj.isKey     = obj.is_key
-    obj["end"]    = obj.close
-
     return obj
 end
 
@@ -176,15 +166,5 @@ function M.close()
     end
     return true
 end
-
--- Arduino Preferences aliases on module
-M.putInt    = M.put_int
-M.getInt    = M.get_int
-M.putBool   = M.put_bool
-M.getBool   = M.get_bool
-M.putString = M.put_string
-M.getString = M.get_string
-M.isKey     = M.is_key
-M["end"]    = M.close
 
 return M
