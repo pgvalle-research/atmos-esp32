@@ -2,72 +2,6 @@ import os
 import shutil
 import sys
 import subprocess
-import tempfile
-
-def to_hex_escaped(binary_data):
-    return "".join(f"\\x{b:02x}" for b in binary_data)
-
-def compile_to_bytecode(lua_bin, cwd, file_path):
-    with tempfile.NamedTemporaryFile(delete=False) as tmp:
-        tmp_name = tmp.name
-    try:
-        lua_code = (
-            f'local f = assert(loadfile([[{file_path}]])); '
-            f'local dump = assert(string.dump(f)); '
-            f'local out = assert(io.open([[{tmp_name}]], "wb")); '
-            f'out:write(dump); '
-            f'out:close()'
-        )
-        subprocess.run([lua_bin, "-e", lua_code], cwd=cwd, check=True)
-        with open(tmp_name, "rb") as f:
-            bytecode = f.read()
-        return bytecode
-    finally:
-        if os.path.exists(tmp_name):
-            os.remove(tmp_name)
-
-def write_bytecode(dest_path, bytecode):
-    os.makedirs(os.path.dirname(dest_path), exist_ok=True)
-    with open(dest_path, "wb") as f:
-        f.write(bytecode)
-
-def compile_atm_to_lua(lua_bin, atmos_src_dir, lua_atmos_dir, f_streams_dir, atm_file, dest_lua_file):
-    lua_atmos_parent = os.path.dirname(lua_atmos_dir)
-    lua_code = (
-        f"package.path = package.path .. ';{atmos_src_dir}/?.lua;{atmos_src_dir}/?/init.lua;{lua_atmos_parent}/?.lua;{lua_atmos_parent}/?/init.lua;{f_streams_dir}/?.lua;{f_streams_dir}/?/init.lua'; "
-        f"table.insert(package.searchers or package.loaders, 1, function(name) "
-        f"  local prefix = 'atmos.lang.' "
-        f"  if name:sub(1, #prefix) == prefix then "
-        f"    local sub = name:sub(#prefix + 1) "
-        f"    local path = '{atmos_src_dir}/' .. sub:gsub('%.', '/') .. '.lua' "
-        f"    local f = loadfile(path) "
-        f"    if f then return f end "
-        f"  end "
-        f"end); "
-        f"require 'atmos.lang.exec'; "
-        f"local f = assert(io.open([[{atm_file}]], 'r')); "
-        f"local content = f:read('*a'); "
-        f"f:close(); "
-        f"local src = '(func (...) {{ ' .. content .. '\\n}})(...)'; "
-        f"local lua_code = assert(atm_to_lua([[{atm_file}]], src)); "
-        f"local out = assert(io.open([[{dest_lua_file}]], 'w')); "
-        f"out:write(lua_code); "
-        f"out:close();"
-    )
-    subprocess.run([lua_bin, "-e", lua_code], check=True)
-
-def get_module_name(prefix, rel_path):
-    # Map relative path (e.g. "atmos/run.lua") to module name (e.g. "atmos.run")
-    parts = rel_path.replace("\\", "/").split("/")
-    if parts[-1].endswith(".lua"):
-        parts[-1] = parts[-1][:-4]
-    if parts == ["init"] and prefix:
-        return prefix
-    if parts[-1] == "init" and len(parts) > 1:
-        parts.pop()
-    if prefix:
-        parts.insert(0, prefix)
-    return ".".join(parts)
 
 def parse_module_root(spec):
     if "=" in spec:
@@ -76,14 +10,14 @@ def parse_module_root(spec):
         prefix, path = "", spec
     return prefix, os.path.abspath(path)
 
-def iter_lua_files(root):
+def iter_source_files(root, exts):
     for dirpath, dirs, files in os.walk(root):
         dirs[:] = [d for d in dirs if d not in {".git", "old", "tst", "test", "tests", "exs"}]
-        for file in files:
-            if file.endswith(".lua"):
-                abs_path = os.path.join(dirpath, file)
-                rel_path = os.path.relpath(abs_path, root)
-                yield rel_path, abs_path
+        for f in files:
+            if any(f.endswith(ext) for ext in exts):
+                abs_p = os.path.join(dirpath, f)
+                rel_p = os.path.relpath(abs_p, root)
+                yield rel_p, abs_p
 
 def main():
     if len(sys.argv) < 4:
@@ -95,11 +29,11 @@ def main():
     app_src_dir = os.path.abspath(sys.argv[3])
     module_roots = [parse_module_root(spec) for spec in sys.argv[4:]]
 
-    # Filter out atmos-src from module_roots and get its path
     atmos_src_dir = None
-    filtered_roots = []
     lua_atmos_dir = None
     f_streams_dir = None
+    module_dirs = []
+
     for prefix, path in module_roots:
         if prefix == "atmos-src":
             atmos_src_dir = path
@@ -107,115 +41,110 @@ def main():
             if prefix == "atmos":
                 lua_atmos_dir = path
             elif prefix == "streams":
-                f_streams_dir = os.path.dirname(path)
-            filtered_roots.append((prefix, path))
-    module_roots = filtered_roots
+                f_streams_dir = path
+            module_dirs.append((prefix, path))
 
     if os.path.exists(dest_dir):
         shutil.rmtree(dest_dir)
-    os.makedirs(dest_dir)
+    os.makedirs(dest_dir, exist_ok=True)
 
-    temp_dir_obj = None
-    if atmos_src_dir:
-        if not lua_atmos_dir:
-            lua_atmos_dir = os.path.abspath(os.path.join(os.path.dirname(atmos_src_dir), "lua-atmos/atmos"))
-        if not f_streams_dir:
-            f_streams_dir = os.path.abspath(os.path.join(os.path.dirname(atmos_src_dir), "f-streams"))
+    # Collect all compilation jobs: (kind, src_path, dest_path, chunk_name)
+    jobs = []
 
-        temp_dir_obj = tempfile.TemporaryDirectory()
-        temp_src_dir = temp_dir_obj.name
-
-        # Walk through app_src_dir and compile .atm to .lua, copy .lua
-        for dirpath, dirs, files in os.walk(app_src_dir):
-            dirs[:] = [d for d in dirs if d not in {".git", "old", "tst", "test", "tests", "exs"}]
-            for file in files:
-                abs_path = os.path.join(dirpath, file)
-                rel_path = os.path.relpath(abs_path, app_src_dir)
-                dest_path = os.path.join(temp_src_dir, rel_path)
-                os.makedirs(os.path.dirname(dest_path), exist_ok=True)
-
-                if file.endswith(".atm"):
-                    dest_lua_path = dest_path[:-4] + ".lua"
-                    print(f"Compiling Atmos: {rel_path} -> {os.path.relpath(dest_lua_path, temp_src_dir)}")
-                    compile_atm_to_lua(lua_bin, atmos_src_dir, lua_atmos_dir, f_streams_dir, abs_path, dest_lua_path)
-                elif file.endswith(".lua"):
-                    shutil.copy2(abs_path, dest_path)
-        app_src_dir = temp_src_dir
-
-    preloads = []
-    main_init_bytecode = None
-
-    if atmos_src_dir:
-        run_bytecode = compile_to_bytecode(lua_bin, atmos_src_dir, "run.lua")
-        preloads.append(("atmos.lang.run", "atmos/lang/run.lua", run_bytecode))
-
-    for rel_path, abs_path in iter_lua_files(app_src_dir):
-        if rel_path == "init.lua":
-            main_init_bytecode = compile_to_bytecode(lua_bin, app_src_dir, rel_path)
+    # 1. Application sources (.atm and .lua)
+    has_init = False
+    for rel_p, abs_p in iter_source_files(app_src_dir, (".atm", ".lua")):
+        is_init = (rel_p in ("init.atm", "init.lua"))
+        if is_init:
+            has_init = True
+        if rel_p.endswith(".atm"):
+            dst_p = os.path.join(dest_dir, rel_p[:-4] + ".lua")
+            kind = "atm_init" if is_init else "atm"
         else:
-            bytecode = compile_to_bytecode(lua_bin, app_src_dir, rel_path)
-            # Keep application modules as individual files in LittleFS. This lets
-            # Lua's normal file searcher resolve require("foo") as /lua/foo.lua,
-            # including modules translated from foo.atm. Runtime dependencies are
-            # still bundled below because they do not live in the application tree.
-            write_bytecode(os.path.join(dest_dir, rel_path), bytecode)
+            dst_p = os.path.join(dest_dir, rel_p)
+            kind = "lua_init" if is_init else "lua"
+        jobs.append((kind, abs_p, dst_p, "@" + rel_p))
 
-    for prefix, root in module_roots:
-        for rel_path, abs_path in iter_lua_files(root):
-            module_name = get_module_name(prefix, rel_path)
-            bytecode = compile_to_bytecode(lua_bin, root, rel_path)
-            preloads.append((module_name, os.path.join(prefix.replace(".", "/"), rel_path), bytecode))
-
-    if main_init_bytecode is None:
-        print("Error: init.lua not found in app source directory")
+    if not has_init:
+        print("Error: init.atm or init.lua not found in app source directory", file=sys.stderr)
         sys.exit(1)
 
-    # Build the bundle Lua script preloading modules as precompiled chunks
-    bundle_lines = []
-    for mod_name, rel_path, bytecode in preloads:
-        escaped_bc = to_hex_escaped(bytecode)
-        # Use load() with binary chunk and chunkname starting with '@' to preserve filenames in debug
-        bundle_lines.append(f'package.preload["{mod_name}"] = assert(load("{escaped_bc}", "@{rel_path}"))')
-
-    # Add the main entry point code running the compiled main script
-    escaped_main = to_hex_escaped(main_init_bytecode)
+    # 2. Atmos language runtime (atmos.lang.run)
     if atmos_src_dir:
-        bundle_lines.append('require("atmos.lang.run")')
-    bundle_lines.append('require("atmos")')
+        run_lua = os.path.join(atmos_src_dir, "run.lua")
+        if os.path.exists(run_lua):
+            jobs.append(("lua", run_lua, os.path.join(dest_dir, "atmos", "lang", "run.lua"), "@atmos/lang/run.lua"))
+
+    # 3. External modules (atmos, streams, esp32)
+    for prefix, root in module_dirs:
+        for rel_p, abs_p in iter_source_files(root, (".lua",)):
+            dst_p = os.path.join(dest_dir, prefix, rel_p)
+            jobs.append(("lua", abs_p, dst_p, f"@{prefix}/{rel_p}"))
+
+    # Pre-create all destination directories
+    for _, _, dst_p, _ in jobs:
+        os.makedirs(os.path.dirname(dst_p), exist_ok=True)
+
+    # Build Lua batch compiler script
+    lua_script = []
     if atmos_src_dir:
-        bundle_lines.append(f'loop(assert(load("{escaped_main}", "@init.lua")))')
-    else:
-        bundle_lines.append(f'assert(load("{escaped_main}", "@init.lua"))()')
+        lua_atmos_parent = os.path.dirname(lua_atmos_dir) if lua_atmos_dir else ""
+        f_streams_parent = os.path.dirname(f_streams_dir) if f_streams_dir else ""
+        lua_script.append(f"""
+package.path = package.path .. ';{atmos_src_dir}/?.lua;{atmos_src_dir}/?/init.lua;{lua_atmos_parent}/?.lua;{lua_atmos_parent}/?/init.lua;{f_streams_parent}/?.lua;{f_streams_parent}/?/init.lua'
+table.insert(package.searchers or package.loaders, 1, function(name)
+  local prefix = 'atmos.lang.'
+  if name:sub(1, #prefix) == prefix then
+    local sub = name:sub(#prefix + 1)
+    local path = '{atmos_src_dir}/' .. sub:gsub('%.', '/') .. '.lua'
+    local f = loadfile(path)
+    if f then return f end
+  end
+end)
+require 'atmos.lang.exec'
+""")
 
-    bundle_code = "\n".join(bundle_lines)
+    lua_script.append("local jobs = {")
+    for kind, src, dst, name in jobs:
+        lua_script.append(f"  {{ [==[{kind}]==], [==[{src}]==], [==[{dst}]==], [==[{name}]==] }},")
+    lua_script.append("}")
 
-    # Write the bundle code to a temporary file on the host
-    bundle_tmp_path = os.path.join(dest_dir, "init_bundle.tmp")
-    with open(bundle_tmp_path, "w") as f:
-        f.write(bundle_code)
+    lua_script.append("""
+for _, job in ipairs(jobs) do
+  local kind, src, dst, name = job[1], job[2], job[3], job[4]
+  local f = assert(io.open(src, "rb"), "Cannot open " .. src)
+  local content = f:read("*a")
+  f:close()
 
-    dest_init_lua = os.path.join(dest_dir, "init.lua")
+  local chunk
+  if kind == "atm" or kind == "atm_init" then
+    local src_code = '(func (...) { ' .. content .. '\\n})(...)'
+    local lua_code = assert(atm_to_lua(src, src_code))
+    if kind == "atm_init" then
+      lua_code = 'require "atmos.lang.run"\\nrequire "atmos"\\nloop(function(...)\\n' .. lua_code .. '\\nend)\\n'
+    end
+    chunk = assert(load(lua_code, name))
+  elseif kind == "lua_init" and atm_to_lua then
+    local lua_code = 'require "atmos.lang.run"\\nrequire "atmos"\\nloop(function(...)\\n' .. content .. '\\nend)\\n'
+    chunk = assert(load(lua_code, name))
+  else
+    chunk = assert(load(content, name))
+  end
 
-    # Compile the bundle code into final single init.lua bytecode in the destination directory
+  local dump = assert(string.dump(chunk))
+  local out = assert(io.open(dst, "wb"), "Cannot write " .. dst)
+  out:write(dump)
+  out:close()
+  print("Compiled: " .. name)
+end
+""")
+
+    script_str = "\n".join(lua_script)
     try:
-        lua_compile_code = (
-            f'local f = assert(io.open([[{bundle_tmp_path}]], "r")); '
-            f'local code = f:read("*a"); '
-            f'f:close(); '
-            f'local chunk = assert(load(code, "@init.lua")); '
-            f'local dump = assert(string.dump(chunk)); '
-            f'local out = assert(io.open([[{dest_init_lua}]], "wb")); '
-            f'out:write(dump); '
-            f'out:close()'
-        )
-        subprocess.run([lua_bin, "-e", lua_compile_code], cwd=app_src_dir, check=True)
-        print(f"Amalgamated bundle successfully created at: {dest_init_lua}")
-    except Exception as e:
-        print(f"Failed to compile bundled init.lua: {e}")
+        subprocess.run([lua_bin, "-"], input=script_str.encode("utf-8"), check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"Error compiling Lua/Atmos scripts: {e}", file=sys.stderr)
         sys.exit(1)
-    finally:
-        if os.path.exists(bundle_tmp_path):
-            os.remove(bundle_tmp_path)
 
 if __name__ == "__main__":
     main()
