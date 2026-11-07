@@ -1,22 +1,23 @@
 local atmos = require "atmos"
+local _c = _esp.ir
 
 local M = {}
 
 function M.start(pin, options)
-    return _esp_ir_start(pin, options)
+    return _c.start(pin, options)
 end
 
 function M.stop()
-    return _esp_ir_stop()
+    return _c.stop()
 end
 
 function M.stats()
-    return _esp_ir_stats()
+    return _c.stats()
 end
 
 function M.step()
     while true do
-        local ev = _esp_ir_next_event()
+        local ev = _c.next_event()
         if ev == nil then
             break
         end

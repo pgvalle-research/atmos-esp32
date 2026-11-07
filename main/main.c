@@ -57,11 +57,14 @@ static int l_meminfo(lua_State *L) {
 }
 
 static void register_esp_bindings(lua_State *L) {
-    lua_register(L, "meminfo", l_meminfo);
+    lua_createtable(L, 0, 5);
+    lua_pushcfunction(L, l_meminfo);
+    lua_setfield(L, -2, "meminfo");
     register_gpio(L);
     register_espnow(L);
     register_ir(L);
     register_preferences(L);
+    lua_setglobal(L, "_esp");
 }
 
 static void init_filesystem() {

@@ -299,10 +299,16 @@ static int l_espnow_next_event(lua_State *L) {
     return 1;
 }
 
+static const luaL_Reg s_espnow_lib[] = {
+    {"init", l_espnow_init},
+    {"add_peer", l_espnow_add_peer},
+    {"send", l_espnow_send},
+    {"get_mac", l_espnow_get_mac},
+    {"next_event", l_espnow_next_event},
+    {NULL, NULL}
+};
+
 void register_espnow(lua_State *L) {
-    lua_register(L, "_esp_espnow_init", l_espnow_init);
-    lua_register(L, "_esp_espnow_add_peer", l_espnow_add_peer);
-    lua_register(L, "_esp_espnow_send", l_espnow_send);
-    lua_register(L, "_esp_espnow_get_mac", l_espnow_get_mac);
-    lua_register(L, "_esp_espnow_next_event", l_espnow_next_event);
+    luaL_newlib(L, s_espnow_lib);
+    lua_setfield(L, -2, "espnow");
 }

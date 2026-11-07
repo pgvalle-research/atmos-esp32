@@ -356,10 +356,16 @@ static int l_ir_stats(lua_State *L)
     return 1;
 }
 
+static const luaL_Reg s_ir_lib[] = {
+    {"start", l_ir_start},
+    {"stop", l_ir_stop},
+    {"next_event", l_ir_next_event},
+    {"stats", l_ir_stats},
+    {NULL, NULL}
+};
+
 void register_ir(lua_State *L)
 {
-    lua_register(L, "_esp_ir_start", l_ir_start);
-    lua_register(L, "_esp_ir_stop", l_ir_stop);
-    lua_register(L, "_esp_ir_next_event", l_ir_next_event);
-    lua_register(L, "_esp_ir_stats", l_ir_stats);
+    luaL_newlib(L, s_ir_lib);
+    lua_setfield(L, -2, "ir");
 }

@@ -274,6 +274,22 @@ static int l_prefs_commit(lua_State *L) {
     return 1;
 }
 
+static const luaL_Reg s_prefs_lib[] = {
+    {"open", l_prefs_open},
+    {"close", l_prefs_close},
+    {"set_i32", l_prefs_set_i32},
+    {"get_i32", l_prefs_get_i32},
+    {"set_bool", l_prefs_set_bool},
+    {"get_bool", l_prefs_get_bool},
+    {"set_str", l_prefs_set_str},
+    {"get_str", l_prefs_get_str},
+    {"is_key", l_prefs_is_key},
+    {"remove", l_prefs_remove},
+    {"clear", l_prefs_clear},
+    {"commit", l_prefs_commit},
+    {NULL, NULL}
+};
+
 void register_preferences(lua_State *L) {
     if (luaL_newmetatable(L, PREFS_METATABLE)) {
         lua_pushcfunction(L, l_prefs_gc);
@@ -283,16 +299,6 @@ void register_preferences(lua_State *L) {
     }
     lua_pop(L, 1);
 
-    lua_register(L, "_esp_prefs_open", l_prefs_open);
-    lua_register(L, "_esp_prefs_close", l_prefs_close);
-    lua_register(L, "_esp_prefs_set_i32", l_prefs_set_i32);
-    lua_register(L, "_esp_prefs_get_i32", l_prefs_get_i32);
-    lua_register(L, "_esp_prefs_set_bool", l_prefs_set_bool);
-    lua_register(L, "_esp_prefs_get_bool", l_prefs_get_bool);
-    lua_register(L, "_esp_prefs_set_str", l_prefs_set_str);
-    lua_register(L, "_esp_prefs_get_str", l_prefs_get_str);
-    lua_register(L, "_esp_prefs_is_key", l_prefs_is_key);
-    lua_register(L, "_esp_prefs_remove", l_prefs_remove);
-    lua_register(L, "_esp_prefs_clear", l_prefs_clear);
-    lua_register(L, "_esp_prefs_commit", l_prefs_commit);
+    luaL_newlib(L, s_prefs_lib);
+    lua_setfield(L, -2, "preferences");
 }

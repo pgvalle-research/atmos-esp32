@@ -1,3 +1,5 @@
+local _c = _esp.preferences
+
 local M = {}
 
 local active_instance = nil
@@ -28,7 +30,7 @@ local function wrap_instance(ud)
         if key == nil or val == nil then
             error("put_int requires (key, value)", 2)
         end
-        return _esp_prefs_set_i32(obj._ud, tostring(key), math.floor(tonumber(val)))
+        return _c.set_i32(obj._ud, tostring(key), math.floor(tonumber(val)))
     end
 
     function obj:get_int(...)
@@ -37,7 +39,7 @@ local function wrap_instance(ud)
         if key == nil then
             error("get_int requires (key, [default])", 2)
         end
-        local val = _esp_prefs_get_i32(obj._ud, tostring(key))
+        local val = _c.get_i32(obj._ud, tostring(key))
         if val == nil then
             return default ~= nil and default or 0
         end
@@ -50,7 +52,7 @@ local function wrap_instance(ud)
         if key == nil or val == nil then
             error("put_bool requires (key, value)", 2)
         end
-        return _esp_prefs_set_bool(obj._ud, tostring(key), not not val)
+        return _c.set_bool(obj._ud, tostring(key), not not val)
     end
 
     function obj:get_bool(...)
@@ -59,7 +61,7 @@ local function wrap_instance(ud)
         if key == nil then
             error("get_bool requires (key, [default])", 2)
         end
-        local val = _esp_prefs_get_bool(obj._ud, tostring(key))
+        local val = _c.get_bool(obj._ud, tostring(key))
         if val == nil then
             return default ~= nil and default or false
         end
@@ -72,7 +74,7 @@ local function wrap_instance(ud)
         if key == nil or val == nil then
             error("put_string requires (key, value)", 2)
         end
-        return _esp_prefs_set_str(obj._ud, tostring(key), tostring(val))
+        return _c.set_str(obj._ud, tostring(key), tostring(val))
     end
 
     function obj:get_string(...)
@@ -81,7 +83,7 @@ local function wrap_instance(ud)
         if key == nil then
             error("get_string requires (key, [default])", 2)
         end
-        local val = _esp_prefs_get_str(obj._ud, tostring(key))
+        local val = _c.get_str(obj._ud, tostring(key))
         if val == nil then
             return default ~= nil and default or ""
         end
@@ -94,7 +96,7 @@ local function wrap_instance(ud)
         if key == nil then
             error("is_key requires (key)", 2)
         end
-        return _esp_prefs_is_key(obj._ud, tostring(key))
+        return _c.is_key(obj._ud, tostring(key))
     end
 
     function obj:remove(...)
@@ -103,22 +105,22 @@ local function wrap_instance(ud)
         if key == nil then
             error("remove requires (key)", 2)
         end
-        return _esp_prefs_remove(obj._ud, tostring(key))
+        return _c.remove(obj._ud, tostring(key))
     end
 
     function obj:clear(...)
         check_open()
-        return _esp_prefs_clear(obj._ud)
+        return _c.clear(obj._ud)
     end
 
     function obj:commit(...)
         check_open()
-        return _esp_prefs_commit(obj._ud)
+        return _c.commit(obj._ud)
     end
 
     function obj:close(...)
         if not obj._closed then
-            _esp_prefs_close(obj._ud)
+            _c.close(obj._ud)
             obj._closed = true
             if active_instance == obj then
                 active_instance = nil
@@ -134,7 +136,7 @@ function M.open(namespace, readonly, partition)
     if not namespace then
         error("Preferences.open/begin requires a namespace name", 2)
     end
-    local ud = _esp_prefs_open(tostring(namespace), readonly or false, partition)
+    local ud = _c.open(tostring(namespace), readonly or false, partition)
     local inst = wrap_instance(ud)
     active_instance = inst
     return inst
@@ -144,7 +146,7 @@ M.begin = M.open
 
 local function get_active()
     if not active_instance or active_instance._closed then
-        error("No Preferences namespace is currently open. Call preferences.begin('namespace') first.", 3)
+        error("No Preferences namespace is currently open. Call preferences.open('namespace') first.", 3)
     end
     return active_instance
 end

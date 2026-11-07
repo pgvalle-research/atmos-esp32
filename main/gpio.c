@@ -495,15 +495,21 @@ static int l_gpio_next_event(lua_State *L) {
     return 1;
 }
 
+static const luaL_Reg s_gpio_lib[] = {
+    {"mode", l_gpio_mode},
+    {"read", l_gpio_read},
+    {"write", l_gpio_write},
+    {"watch", l_gpio_watch},
+    {"unwatch", l_gpio_unwatch},
+    {"read_adc", l_gpio_read_adc},
+    {"setup_pwm", l_gpio_setup_pwm},
+    {"write_pwm", l_gpio_write_pwm},
+    {"fade_pwm", l_gpio_fade_pwm},
+    {"next_event", l_gpio_next_event},
+    {NULL, NULL}
+};
+
 void register_gpio(lua_State *L) {
-    lua_register(L, "_esp_gpio_mode", l_gpio_mode);
-    lua_register(L, "_esp_gpio_read", l_gpio_read);
-    lua_register(L, "_esp_gpio_write", l_gpio_write);
-    lua_register(L, "_esp_gpio_watch", l_gpio_watch);
-    lua_register(L, "_esp_gpio_unwatch", l_gpio_unwatch);
-    lua_register(L, "_esp_gpio_read_adc", l_gpio_read_adc);
-    lua_register(L, "_esp_gpio_setup_pwm", l_gpio_setup_pwm);
-    lua_register(L, "_esp_gpio_write_pwm", l_gpio_write_pwm);
-    lua_register(L, "_esp_gpio_fade_pwm", l_gpio_fade_pwm);
-    lua_register(L, "_esp_gpio_next_event", l_gpio_next_event);
+    luaL_newlib(L, s_gpio_lib);
+    lua_setfield(L, -2, "gpio");
 }

@@ -16,7 +16,7 @@ end)
 
 M.Mem = task(function()
     loop_on(1 * _s_, function()
-        local m = meminfo()
+        local m = _esp.meminfo()
         print(string.format(
             "[MEM] Free Heap: %0.1f%% (%d KB) | Min Free: %0.1f%% | Stack Free: %d B",
             (m.heap_free / m.heap_total) * 100,
