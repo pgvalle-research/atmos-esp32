@@ -276,7 +276,7 @@ static int l_espnow_next_event(lua_State *L) {
         lua_insert(L, -2);
         lua_setfield(L, -2, "data");
 
-        lua_pushliteral(L, "espnow_recv");
+        lua_pushliteral(L, "espnow.recv");
         lua_setfield(L, -2, "tag");
         lua_pushstring(L, mac_str);
         lua_setfield(L, -2, "mac");
@@ -284,7 +284,7 @@ static int l_espnow_next_event(lua_State *L) {
         lua_setfield(L, -2, "time");
     } else if (ev.type == ESPNOW_EVENT_SEND) {
         lua_createtable(L, 0, 4);
-        lua_pushliteral(L, "espnow_send");
+        lua_pushliteral(L, "espnow.send");
         lua_setfield(L, -2, "tag");
         lua_pushstring(L, mac_str);
         lua_setfield(L, -2, "mac");
