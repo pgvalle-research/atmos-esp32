@@ -7,8 +7,10 @@
 
 typedef enum {
     IR_PROTOCOL_UNKNOWN = 0,
+    IR_PROTOCOL_NEC,
     IR_PROTOCOL_SONY,
     IR_PROTOCOL_SAMSUNG,
+    IR_PROTOCOL_LG,
 } ir_protocol_t;
 
 typedef struct {

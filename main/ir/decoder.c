@@ -23,6 +23,56 @@ static size_t find_header(const ir_pulse_t *pulses, size_t count,
     return count;
 }
 
+static bool decode_nec(const ir_pulse_t *pulses, size_t count,
+                       ir_frame_t *frame)
+{
+    size_t first = find_header(pulses, count, 9000, 4500);
+    if (first == count) {
+        /* NEC repeat frame: 9.0 ms mark and 2.25 ms space followed by a 560 us mark */
+        first = find_header(pulses, count, 9000, 2250);
+        if (first != count && first + 2 < count &&
+            pulses[first + 2].level == 0 &&
+            near_us(pulses[first + 2].duration_us, 560)) {
+            frame->protocol = IR_PROTOCOL_NEC;
+            frame->repeat = true;
+            return true;
+        }
+        return false;
+    }
+
+    size_t pos = first + 2;
+    uint32_t raw = 0;
+    for (unsigned bit = 0; bit < 32; ++bit) {
+        if (pos + 1 >= count ||
+            pulses[pos].level != 0 || pulses[pos + 1].level != 1 ||
+            !near_us(pulses[pos].duration_us, 560)) {
+            return false;
+        }
+
+        if (near_us(pulses[pos + 1].duration_us, 1690)) {
+            raw |= (1UL << bit);
+        } else if (!near_us(pulses[pos + 1].duration_us, 560)) {
+            return false;
+        }
+        pos += 2;
+    }
+
+    uint8_t addr_lo = (uint8_t)(raw & 0xFFU);
+    uint8_t addr_hi = (uint8_t)((raw >> 8) & 0xFFU);
+    uint8_t cmd     = (uint8_t)((raw >> 16) & 0xFFU);
+
+    frame->protocol = IR_PROTOCOL_NEC;
+    if (addr_hi == (uint8_t)(~addr_lo)) {
+        frame->address = addr_lo;
+    } else {
+        frame->address = (uint32_t)addr_lo | ((uint32_t)addr_hi << 8);
+    }
+    frame->command = cmd;
+    frame->raw = raw;
+    frame->bits = 32;
+    return true;
+}
+
 static bool decode_samsung(const ir_pulse_t *pulses, size_t count,
                            ir_frame_t *frame)
 {
@@ -109,6 +159,55 @@ static bool decode_sony(const ir_pulse_t *pulses, size_t count,
     return true;
 }
 
+static bool decode_lg(const ir_pulse_t *pulses, size_t count,
+                      ir_frame_t *frame)
+{
+    size_t first = find_header(pulses, count, 8500, 4250);
+    if (first == count) {
+        first = find_header(pulses, count, 8000, 4000);
+    }
+    if (first == count) {
+        /* LG repeat: 8.5ms mark, 2.25ms space, 500us mark */
+        first = find_header(pulses, count, 8500, 2250);
+        if (first == count) {
+            first = find_header(pulses, count, 8000, 2250);
+        }
+        if (first != count && first + 2 < count &&
+            pulses[first + 2].level == 0 &&
+            near_us(pulses[first + 2].duration_us, 500)) {
+            frame->protocol = IR_PROTOCOL_LG;
+            frame->repeat = true;
+            return true;
+        }
+        return false;
+    }
+
+    size_t pos = first + 2;
+    uint32_t raw = 0;
+    for (unsigned bit = 0; bit < 28; ++bit) {
+        if (pos + 1 >= count ||
+            pulses[pos].level != 0 || pulses[pos + 1].level != 1 ||
+            !near_us(pulses[pos].duration_us, 500)) {
+            return false;
+        }
+
+        raw <<= 1;
+        if (near_us(pulses[pos + 1].duration_us, 1500)) {
+            raw |= 1U;
+        } else if (!near_us(pulses[pos + 1].duration_us, 500)) {
+            return false;
+        }
+        pos += 2;
+    }
+
+    frame->protocol = IR_PROTOCOL_LG;
+    frame->address = (raw >> 12) & 0xFFFFU;
+    frame->command = (raw >> 4) & 0xFFU;
+    frame->raw = raw;
+    frame->bits = 28;
+    return true;
+}
+
 bool ir_decode(const ir_pulse_t *pulses, size_t count, ir_frame_t *frame)
 {
     if (pulses == NULL || frame == NULL || count < 3) {
@@ -116,17 +215,23 @@ bool ir_decode(const ir_pulse_t *pulses, size_t count, ir_frame_t *frame)
     }
 
     memset(frame, 0, sizeof(*frame));
-    return decode_samsung(pulses, count, frame) ||
-           decode_sony(pulses, count, frame);
+    return decode_nec(pulses, count, frame) ||
+           decode_samsung(pulses, count, frame) ||
+           decode_sony(pulses, count, frame) ||
+           decode_lg(pulses, count, frame);
 }
 
 const char *ir_protocol_name(ir_protocol_t protocol)
 {
     switch (protocol) {
+    case IR_PROTOCOL_NEC:
+        return "nec";
     case IR_PROTOCOL_SONY:
         return "sony";
     case IR_PROTOCOL_SAMSUNG:
         return "samsung";
+    case IR_PROTOCOL_LG:
+        return "lg";
     default:
         return "unknown";
     }

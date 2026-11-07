@@ -24,7 +24,7 @@
 #define IR_EVENT_QUEUE_LEN        16
 #define IR_WORKER_STACK_WORDS     3072
 #define IR_WORKER_PRIORITY        10
-#define IR_DEFAULT_GLITCH_NS      80000U
+#define IR_DEFAULT_GLITCH_NS      1250U
 #define IR_DEFAULT_IDLE_NS        15000000U
 
 typedef struct {
@@ -218,8 +218,10 @@ static int l_ir_start(lua_State *L)
         }
         lua_pop(L, 1);
     }
-    luaL_argcheck(L, glitch_ns > 0 && glitch_ns < idle_ns, 2,
-                  "expected 0 < glitch_ns < idle_ns");
+    luaL_argcheck(L, glitch_ns <= 3187, 2,
+                  "glitch_ns must be <= 3187 ns (ESP32 hardware filter limit)");
+    luaL_argcheck(L, glitch_ns < idle_ns, 2,
+                  "expected glitch_ns < idle_ns");
 
     s_capture_queue = xQueueCreate(IR_CAPTURE_QUEUE_LEN, sizeof(ir_capture_t));
     s_event_queue = xQueueCreate(IR_EVENT_QUEUE_LEN, sizeof(ir_queued_event_t));
