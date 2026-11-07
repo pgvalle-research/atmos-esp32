@@ -23,35 +23,46 @@ Before building the project, you must clone the Lua 5.5 compatible ports and con
 
 ## Key Features
 
-* **Hardware Drivers:**
+* **Hardware Drivers & Modules:**
   * **GPIO:** Digital input/output and edge-triggered interrupts (`gpio.watch`).
-  * **PWM / Fade:** Hardware LEDC-based pulse-width modulation and smooth duty cycle fading (`gpio.fade_pwm`).
+  * **PWM / Fade:** Hardware LEDC-based pulse-width modulation and smooth duty cycle fading (`gpio.fade_pwm`), emitting `gpio.pwm_fade` events.
   * **ADC:** High-speed analog reads (`gpio.read_adc`) with adjustable voltage attenuation.
-  * **ESP-NOW:** Low-latency connectionless peer-to-peer wireless communication (`espnow.send`).
-* **Cross-Device Testing:** Includes a companion Arduino ESP8266 sketch under `esp8266_pong/` for instant bidirectional wireless ping-pong testing.
-* **Resource Optimization:** Selective library loading (unloads unneeded standard libraries like `io` and `utf8`) and custom low-latency buffer queues to preserve internal SRAM.
+  * **ESP-NOW:** Low-latency connectionless peer-to-peer wireless communication (`espnow.send`), emitting `espnow.recv` and `espnow.send` events.
+  * **IR Receiver:** Hardware RMT-based infrared decoding supporting NEC, Samsung, Sony SIRC, and LG protocols, emitting `ir` events.
+  * **Preferences:** Key-value non-volatile storage (NVS) backed persistence for integers, booleans, and strings.
+* **Resource Optimization:** Incremental garbage collection tuning, selective library loading, and custom event queues to preserve internal SRAM.
 
 ---
 
 ## Project Structure
 
 ```text
+├── atm/                    # Atmos application code (compiled into LittleFS image)
+│   └── init.atm            # Main Atmos application entrypoint
 ├── main/                   # ESP-IDF C application source code
 │   ├── main.c              # NVS, Filesystem, and Lua VM startup
-│   ├── gpio.c              # C bindings for GPIO, PWM, and ADC
-│   ├── espnow.c            # C bindings for ESP-NOW WiFi radio driver
+│   ├── gpio.c              # C bindings for GPIO, PWM, and ADC (_esp.gpio)
+│   ├── espnow.c            # C bindings for ESP-NOW WiFi radio driver (_esp.espnow)
+│   ├── ir/                 # C bindings & RMT decoder for IR remote (_esp.ir)
+│   ├── preferences.c       # C bindings for NVS key-value storage (_esp.preferences)
 │   └── CMakeLists.txt      # Component build script & dependency paths
-├── lua/                    # Lua root directory (compiles into LittleFS image)
-│   ├── init.lua            # Main application script & tasks
+├── lua/                    # Lua root directory
 │   └── esp32/              # ESP32 Atmos wrapper packages
 │       ├── init.lua        # Module exports
 │       ├── clock.lua       # Primary scheduler clock environment
 │       ├── gpio.lua        # Secondary GPIO environment
-│       └── espnow.lua      # Secondary ESP-NOW environment
-├── esp8266_pong/           # Companion C++ Arduino sketch for cross-platform testing
+│       ├── espnow.lua      # Secondary ESP-NOW environment
+│       ├── ir.lua          # Secondary IR environment
+│       ├── preferences.lua # NVS storage API wrapper
+│       └── debug.lua       # Memory and FPS monitoring tasks
+├── ext/                    # Git submodules
+│   ├── atmos/              # Atmos compiler repository
+│   ├── atmos-f-streams/    # Streams library repository
+│   └── lua-atmos/          # Atmos Lua runtime repository
+├── compile_lua.py          # Host tool cross-compiling Atmos/Lua to 32-bit bytecode
 ├── doc/
 │   └── api.md              # Complete Atmos C/Lua API specification
-├── partitions.csv          # Custom partition table (App + LittleFS storage)
+├── partitions.csv          # Custom partition table (2MB App + 1.92MB LittleFS)
 └── sdkconfig.defaults      # Pre-tuned memory and compiler configurations
 ```
 
@@ -65,32 +76,18 @@ Before building the project, you must clone the Lua 5.5 compatible ports and con
 * python3
 * ESP-IDF v6.x installed and exported.
 
-### 1. Clone this repo
+### 1. Clone this repo with submodules
 
 ```bash
-git clone https://github.com/pgvalle/lua-atmos-esp32.git
+git clone --recurse-submodules https://github.com/pgvalle-research/atmos-esp32.git
 ```
 
-### 2. Clone the Dependency Ports
-
+If you already cloned without submodules, initialize them:
 ```bash
-# Clone the Atmos runtime fork (Checkout the v0.7-lua5.5 branch)
-git clone -b v0.7-lua5.5 https://github.com/pgvalle/atmos.git /whatever/path/you/choose
-
-# Clone the f-streams fork (Checkout the v0.2-lua5.5 branch)
-git clone -b v0.2-lua5.5 https://github.com/pgvalle/f-streams.git /whatever/path/you/choose
+git submodule update --init --recursive
 ```
 
-### 3. Configure Paths in CMake
-
-Open **[main/CMakeLists.txt](main/CMakeLists.txt#L9-L11)** and set the variables to the absolute paths where you cloned the repositories:
-
-```cmake
-set(ATMOS_LUA_DIR "/path/to/your/cloned/atmos/atmos")
-set(F_STREAMS_LUA_DIR "/path/to/your/cloned/f-streams/streams")
-```
-
-### 4. Build and Flash the ESP32
+### 2. Build and Flash the ESP32
 
 1. Connect the ESP32 board to your PC.
 2. Run the build, flash, and serial monitor sequence:

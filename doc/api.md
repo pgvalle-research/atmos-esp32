@@ -49,9 +49,6 @@ local clock, gpio, espnow, ir = esp32.clock, esp32.gpio, esp32.espnow, esp32.ir
   * [`espnow.recv` Event](#espnowrecv-event)
   * [`espnow.send` Event](#espnowsend-event)
   * [`ir` Event](#ir-event)
-* **[7. Cross-Device Testing (ESP32 <-> ESP8266)](#7-cross-device-testing-esp32---esp8266)**
-  * [Companion Sketch](#companion-sketch)
-  * [Channel & Power Saving Considerations](#channel--power-saving-considerations)
 
 ---
 
@@ -427,6 +424,10 @@ Secondary environments process physical interrupts and emit them as Atmos events
       time = integer       -- Microseconds since boot of transition
   }
   ```
+* **Atmos Syntax:**
+  ```atmos
+  await :gpio [pin=4, edge="falling"]
+  ```
 
 ### `gpio.pwm_fade` Event
 * **Created/Triggered by:** [`gpio.fade_pwm`](#gpiofade_pwm)
@@ -437,6 +438,10 @@ Secondary environments process physical interrupts and emit them as Atmos events
       channel = integer,   -- PWM channel number (0 to 7)
       time = integer       -- Microseconds since boot when fade completed
   }
+  ```
+* **Atmos Syntax:**
+  ```atmos
+  await :"gpio.pwm_fade" [channel=0]
   ```
 
 ### `espnow.recv` Event
@@ -450,6 +455,10 @@ Secondary environments process physical interrupts and emit them as Atmos events
       time = integer       -- Microseconds since boot when received
   }
   ```
+* **Atmos Syntax:**
+  ```atmos
+  await :"espnow.recv" [data="PING"]
+  ```
 
 ### `espnow.send` Event
 * **Created/Triggered by:** [`espnow.send`](#espnowsend)
@@ -461,6 +470,10 @@ Secondary environments process physical interrupts and emit them as Atmos events
       status = string,     -- "success" or "fail"
       time = integer       -- Microseconds since boot when result resolved
   }
+  ```
+* **Atmos Syntax:**
+  ```atmos
+  await :"espnow.send" [status="success"]
   ```
 * > [!NOTE]
   > **Transmission Status Semantics (Unicast vs. Broadcast)**
@@ -486,6 +499,11 @@ Emitted once for each valid decoded IR frame:
     time = integer
 }
 ```
+
+* **Atmos Syntax:**
+  ```atmos
+  await :ir [command=0x45, repeat=false]
+  ```
 
 `raw` is a hexadecimal string because this firmware configures Lua with
 32-bit integers. The event describes only the received frame; button mappings
@@ -529,20 +547,3 @@ raw value, bit count, and repeat status:
   queue overflow increments `ir.stats().dropped`.
 * `raw` is a hexadecimal string, rather than an integer, to preserve the value
   in the firmware's 32-bit Lua configuration.
-
----
-
-## 6. Cross-Device Testing (ESP32 <-> ESP8266)
-
-The project repository includes a compatible ESP8266 Arduino C++ firmware folder to facilitate testing two-way communication between Atmos devices and standard Arduino platforms.
-
-### Companion Sketch
-Located at [esp8266_pong/esp8266_pong.ino](file:///home/pedro/Projects/idf-extra-components/lua/examples/lua_example/esp8266_pong/esp8266_pong.ino), the sketch implements a responsive ping-pong node:
-* It listens on Wi-Fi channel 1.
-* On receiving `"PING"`, it schedules a reply of `"PONG"` to the configured ESP32 MAC address.
-
-### Channel & Power Saving Considerations
-For ESP-NOW to function reliably:
-1. **Match Wi-Fi Channels:** Ensure both devices are explicitly set to the same Wi-Fi channel (Channel 1 is standard).
-2. **Disable Power Saving:** The receiver device must have Wi-Fi Power Management turned off (`esp_wifi_set_ps(WIFI_PS_NONE)` in ESP-IDF). Otherwise, the radio receiver goes to sleep periodically and will drop incoming frames.
-3. **Defer Transmission in Callbacks:** On ESP8266 Arduino, calling `esp_now_send` directly from inside the `onDataRecv` callback context is unstable. The companion sketch avoids this by setting a volatile flag and executing the transmission within the main `loop()`.
