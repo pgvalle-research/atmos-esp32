@@ -14,6 +14,8 @@ set M.S8 = 14
 set M.IR_PIN = 15
 set M.LED_STRIP = 2
 
+set M.LEARN_PIN = 0
+
 set M.D26 = 26
 set M.BTN2 = 12
 

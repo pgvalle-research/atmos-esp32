@@ -1,32 +1,37 @@
 val esp = require "esp32"
 val debug = esp.debug
 val gpio = esp.gpio
-val modes = require "ultrat.modes"
+;; val modes = require "ultrat.modes"
 val board = require "ultrat.board"
 
 spawn debug.Mem()
 spawn debug.Fps()
+await false
 
+;;;
 val shouldLearn = gpio.read(board.LEARN_PIN)
 if shouldLearn {
+    print("hello!")
     ;; ...
 } else {
+    print("lael!")
     ;; ...
 }
 
-;;; turned off ;;;
+;; turned off
 val mode = await modes.Select()
-;;; turned on ;;;
+;; turned on
 loop {
     watching :ir [command=stop] {
-        ;;; prepared ;;;
+        ;; prepared
         await :ir [command=iniciar, repeat=false]
-        ;;; in combat ;;;
+        ;; in combat
         spawn modes.Run(mode)
         await :ir [command=iniciar, repeat=false]
     }
 
-    ;;; stopped ;;;
+    ;; stopped
     ;; blink
     await :ir [command=prepare, repeat=false]
 }
+;;;
