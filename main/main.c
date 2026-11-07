@@ -123,6 +123,7 @@ static int run_lua_file() {
     lua_sethook(T, lua_hook, LUA_MASKCOUNT, LUA_WATCHDOG_HOOK_COUNT);
 
     // Tune Garbage Collector for memory-constrained embedded environments (Lua 5.4/5.5 API)
+    lua_gc(L, LUA_GCINC);
     lua_gc(L, LUA_GCPARAM, LUA_GCPPAUSE, LUA_GC_PAUSE_PCT);
     lua_gc(L, LUA_GCPARAM, LUA_GCPSTEPMUL, LUA_GC_STEPMUL_PCT);
 
