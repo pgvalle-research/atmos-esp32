@@ -32,22 +32,22 @@ local clock, gpio, espnow, ir = esp32.clock, esp32.gpio, esp32.espnow, esp32.ir
   * [`ir.stop`](#irstop)
   * [`ir.stats`](#irstats)
 * **[5. esp32.preferences](#5-esp32preferences)**
-  * [`preferences.begin` / `preferences.open`](#preferencesbegin--preferencesopen)
-  * [`preferences.put_int` / `preferences.putInt`](#preferencesput_int--preferencesputint)
-  * [`preferences.get_int` / `preferences.getInt`](#preferencesget_int--preferencesgetint)
-  * [`preferences.put_bool` / `preferences.putBool`](#preferencesput_bool--preferencesputbool)
-  * [`preferences.get_bool` / `preferences.getBool`](#preferencesget_bool--preferencesgetbool)
-  * [`preferences.put_string` / `preferences.putString`](#preferencesput_string--preferencesputstring)
-  * [`preferences.get_string` / `preferences.getString`](#preferencesget_string--preferencesgetstring)
-  * [`preferences.is_key` / `preferences.isKey`](#preferencesis_key--preferencesiskey)
+  * [`preferences.open`](#preferencesopen)
+  * [`preferences.put_int`](#preferencesput_int)
+  * [`preferences.get_int`](#preferencesget_int)
+  * [`preferences.put_bool`](#preferencesput_bool)
+  * [`preferences.get_bool`](#preferencesget_bool)
+  * [`preferences.put_string`](#preferencesput_string)
+  * [`preferences.get_string`](#preferencesget_string)
+  * [`preferences.is_key`](#preferencesis_key)
   * [`preferences.remove`](#preferencesremove)
   * [`preferences.clear`](#preferencesclear)
-  * [`preferences.close` / `preferences.end`](#preferencesclose--preferencesend)
+  * [`preferences.close`](#preferencesclose)
 * **[6. Atmos Hardware Events](#6-atmos-hardware-events)**
   * [`gpio` Event](#gpio-event)
-  * [`gpio_fade_pwm` Event](#gpio_fade_pwm-event)
-  * [`espnow_recv` Event](#espnow_recv-event)
-  * [`espnow_send` Event](#espnow_send-event)
+  * [`gpio.pwm_fade` Event](#gpiopwm_fade-event)
+  * [`espnow.recv` Event](#espnowrecv-event)
+  * [`espnow.send` Event](#espnowsend-event)
   * [`ir` Event](#ir-event)
 * **[7. Cross-Device Testing (ESP32 <-> ESP8266)](#7-cross-device-testing-esp32---esp8266)**
   * [Companion Sketch](#companion-sketch)
@@ -176,19 +176,19 @@ Sets the static duty cycle on a configured PWM channel.
   * `duty`: `integer` (Value from `0` to $2^{\text{resolution}} - 1$).
 
 ### `gpio.fade_pwm`
-Triggers a non-blocking hardware duty cycle fade over a duration of time. Once completed, a **[`gpio_fade_pwm` event](#gpio_fade_pwm-event)** is emitted.
+Triggers a non-blocking hardware duty cycle fade over a duration of time. Once completed, a **[`gpio.pwm_fade` event](#gpiopwm_fade-event)** is emitted.
 * **Syntax:** `gpio.fade_pwm(channel, target_duty, duration_ms)`
-* **Cross Reference:** Triggers a **[`gpio_fade_pwm` event](#gpio_fade_pwm-event)** upon completion.
+* **Cross Reference:** Triggers a **[`gpio.pwm_fade` event](#gpiopwm_fade-event)** upon completion.
 * **Example:**
   ```lua
   -- Fade LED on Channel 0 to 100% (8191) over 1000ms, then fade back to 0% over 500ms
   spawn(task(function()
       while true do
           gpio.fade_pwm(0, 8191, 1000)
-          await({ tag = "gpio_fade_pwm", channel = 0 })
+          await({ tag = "gpio.pwm_fade", channel = 0 })
 
           gpio.fade_pwm(0, 0, 500)
-          await({ tag = "gpio_fade_pwm", channel = 0 })
+          await({ tag = "gpio.pwm_fade", channel = 0 })
       end
   end))
   ```
@@ -204,7 +204,7 @@ Initializes the Wi-Fi Station stack and boots the ESP-NOW communication service.
 * **Under the hood configurations:**
   * **Power Saving:** Automatically disables Wi-Fi Power Saving (`WIFI_PS_NONE`). This keeps the radio receiver awake at all times to prevent dropped packets.
   * **Channel Lock:** Locks the physical Wi-Fi channel to **Channel 1** to ensure matching transmission frequencies with peer devices.
-* **Cross Reference:** Allows incoming packets to trigger **[`espnow_recv` events](#espnow_recv-event)**.
+* **Cross Reference:** Allows incoming packets to trigger **[`espnow.recv` events](#espnowrecv-event)**.
 
 ### `espnow.get_mac`
 Gets the local MAC address of the board.
@@ -223,14 +223,14 @@ Sends an asynchronous message to the specified MAC address (unicast or broadcast
 * **Arguments:**
   * `mac_str`: `string` (Target peer MAC or `"ff:ff:ff:ff:ff:ff"` for broadcast).
   * `payload`: `string` (Message string up to 250 bytes).
-* **Cross Reference:** Triggers an **[`espnow_send` event](#espnow_send-event)** upon packet delivery outcome (immediate for broadcast).
+* **Cross Reference:** Triggers an **[`espnow.send` event](#espnowsend-event)** upon packet delivery outcome (immediate for broadcast).
 * **Reliability Check Observation:**
-  This function is non-blocking and fires the packet asynchronously. If you need link-layer delivery confirmation (ensuring the receiver ACKed the packet), you should explicitly `await` the corresponding **[`espnow_send` event](#espnow_send-event)** matching the target MAC:
+  This function is non-blocking and fires the packet asynchronously. If you need link-layer delivery confirmation (ensuring the receiver ACKed the packet), you should explicitly `await` the corresponding **[`espnow.send` event](#espnowsend-event)** matching the target MAC:
   ```lua
   espnow.send(peer_mac, "Hello")
   
   -- Suspend explicitly until transmission resolves
-  local ev = await({ tag = "espnow_send", mac = peer_mac })
+  local ev = await({ tag = "espnow.send", mac = peer_mac })
   if ev.status == "success" then
       print("Delivered successfully!")
   else
@@ -239,16 +239,17 @@ Sends an asynchronous message to the specified MAC address (unicast or broadcast
 * > [!NOTE]
   > **Transmission Status Semantics (Unicast vs. Broadcast)**
   >
-  > * **Unicast (Specific MAC):** A subsequent `espnow_send` event returning `status = "success"` guarantees that the target device **successfully received** the packet and returned a hardware Link-layer ACK.
-  > * **Broadcast (`"ff:ff:ff:ff:ff:ff"`):** A subsequent `espnow_send` event returning `status = "success"` **only** confirms the packet was successfully **transmitted into the air** by the local antenna. It does **not** indicate whether any remote device actually heard it.
+  > * **Unicast (Specific MAC):** A subsequent `espnow.send` event returning `status = "success"` guarantees that the target device **successfully received** the packet and returned a hardware Link-layer ACK.
+  > * **Broadcast (`"ff:ff:ff:ff:ff:ff"`):** A subsequent `espnow.send` event returning `status = "success"` **only** confirms the packet was successfully **transmitted into the air** by the local antenna. It does **not** indicate whether any remote device actually heard it.
 
 ---
 
 ## 4. `esp32.ir`
 
 The IR module receives demodulated remote-control signals through the ESP32 RMT
-peripheral. It currently decodes Sony SIRC and Samsung frames. The module emits
-neutral frame data and does not assign application-specific meanings to commands.
+peripheral. Modeled after popular libraries such as `IRremote` and `IRremoteESP8266`,
+it decodes NEC (standard and extended), Samsung, Sony SIRC, and LG frames. The
+module emits neutral frame data and does not assign application-specific meanings to commands.
 
 ### `ir.start`
 
@@ -256,9 +257,9 @@ Starts the single IR receiver.
 
 * **Syntax:** `ir.start(pin, [options])`
 * **Arguments:**
-  * `pin`: GPIO connected to the IR receiver output.
-  * `options.glitch_ns`: Pulses shorter than this are discarded. Default: `80000`.
-  * `options.idle_ns`: A level lasting this long ends the frame. Default: `15000000`.
+  * `pin`: GPIO connected to the IR receiver output (active-low demodulated sensor such as TSOP4838 or VS1838B).
+  * `options.glitch_ns`: Pulses shorter than this are discarded by the hardware filter. Default: `1250` (hardware limit on ESP32 is `3187` ns; set to `0` to disable filtering).
+  * `options.idle_ns`: A level lasting this long ends the frame. Default: `15000000` (15 ms).
 
 ```lua
 local ir = require("esp32").ir
@@ -287,24 +288,54 @@ Returns diagnostic counters:
 `invalid` counts captured waveforms that were not valid supported frames.
 `dropped` counts frames lost because an internal queue was full.
 
+### Events
+
+When an IR frame is successfully decoded, an event is emitted into the Atmos / Lua environment with `tag = "ir"`:
+
+```lua
+{
+    tag = "ir",
+    protocol = "nec" | "samsung" | "sony" | "lg",
+    address = integer,
+    command = integer,
+    raw = string,      -- e.g. "0x20DF10EF"
+    bits = integer,    -- bit length (e.g. 32 for NEC/Samsung, 12/15/20 for Sony, 28 for LG)
+    repeat = boolean,  -- true if frame is a repeated code
+    time = integer     -- capture timestamp in microseconds
+}
+```
+
+In Atmos, you can pattern-match or await IR events directly:
+
+```atmos
+;; wait for any non-repeat IR event with a specific command
+val ev = await :ir [command=0x34, repeat=false]
+
+;; match on command code
+match ev.command {
+    0x10 => print("Command 1")
+    0x20 => print("Command 2")
+}
+```
+
 ---
 
 ## 5. `esp32.preferences`
 
-The preferences module provides persistent key-value storage in ESP32 Non-Volatile Storage (NVS) flash memory, modeled after Arduino's `Preferences` library. Changes are committed to flash immediately upon write.
+The preferences module provides persistent key-value storage in ESP32 Non-Volatile Storage (NVS) flash memory. Changes are committed to flash immediately upon write.
 
-Namespaces and keys must be between 1 and 15 characters in length. Both module-level singleton usage and instance/handle usage are supported, as well as both snake_case and Arduino camelCase method names.
+Namespaces and keys must be between 1 and 15 characters in length. Both module-level singleton usage and instance/handle usage are supported with a single clean `snake_case` API.
 
-### `preferences.begin` / `preferences.open`
+### `preferences.open`
 Opens a storage namespace. Sets the active namespace for module-level methods and returns a preferences handle object.
-* **Syntax:** `preferences.begin(namespace, [read_only], [partition])`
+* **Syntax:** `preferences.open(namespace, [read_only], [partition])`
 * **Arguments:**
   * `namespace`: `string` (1 to 15 characters).
   * `read_only`: `boolean` (Default: `false`).
   * `partition`: `string` (Optional, defaults to `"nvs"` partition).
 * **Returns:** `Preferences` handle object.
 
-### `preferences.put_int` / `preferences.putInt`
+### `preferences.put_int`
 Stores a 32-bit signed integer in flash and automatically commits.
 * **Syntax:** `preferences.put_int(key, value)` or `handle:put_int(key, value)`
 * **Arguments:**
@@ -312,7 +343,7 @@ Stores a 32-bit signed integer in flash and automatically commits.
   * `value`: `integer` (32-bit signed integer).
 * **Returns:** `boolean` (`true` on success).
 
-### `preferences.get_int` / `preferences.getInt`
+### `preferences.get_int`
 Retrieves a stored integer from flash.
 * **Syntax:** `preferences.get_int(key, [default])` or `handle:get_int(key, [default])`
 * **Arguments:**
@@ -320,23 +351,23 @@ Retrieves a stored integer from flash.
   * `default`: `integer` (Returned if the key is not found. Default: `0`).
 * **Returns:** `integer`
 
-### `preferences.put_bool` / `preferences.putBool`
+### `preferences.put_bool`
 Stores a boolean in flash and commits.
 * **Syntax:** `preferences.put_bool(key, value)`
 
-### `preferences.get_bool` / `preferences.getBool`
+### `preferences.get_bool`
 Retrieves a stored boolean from flash.
 * **Syntax:** `preferences.get_bool(key, [default])` (Default: `false`).
 
-### `preferences.put_string` / `preferences.putString`
+### `preferences.put_string`
 Stores a string in flash and commits.
 * **Syntax:** `preferences.put_string(key, value)`
 
-### `preferences.get_string` / `preferences.getString`
+### `preferences.get_string`
 Retrieves a stored string from flash.
 * **Syntax:** `preferences.get_string(key, [default])` (Default: `""`).
 
-### `preferences.is_key` / `preferences.isKey`
+### `preferences.is_key`
 Checks if a key exists in the current namespace.
 * **Syntax:** `preferences.is_key(key)`
 * **Returns:** `boolean`
@@ -351,9 +382,9 @@ Erases all keys in the open namespace and commits.
 * **Syntax:** `preferences.clear()`
 * **Returns:** `boolean`
 
-### `preferences.close` / `preferences.end`
+### `preferences.close`
 Closes the open namespace handle and releases resources.
-* **Syntax:** `preferences.close()` or `handle:close()` (or `preferences["end"]()`).
+* **Syntax:** `preferences.close()` or `handle:close()`
 
 ### Example: Storing and Loading 3 Integers
 ```lua
@@ -361,7 +392,7 @@ local esp32 = require "esp32"
 local prefs = esp32.preferences
 
 -- Open namespace "app" in read/write mode
-prefs.begin("app")
+prefs.open("app")
 
 -- Save 3 integers separately
 prefs.put_int("cmd_start", 100)
@@ -397,35 +428,35 @@ Secondary environments process physical interrupts and emit them as Atmos events
   }
   ```
 
-### `gpio_fade_pwm` Event
+### `gpio.pwm_fade` Event
 * **Created/Triggered by:** [`gpio.fade_pwm`](#gpiofade_pwm)
 * **Structure:**
   ```lua
   {
-      tag = "gpio_fade_pwm",
+      tag = "gpio.pwm_fade",
       channel = integer,   -- PWM channel number (0 to 7)
       time = integer       -- Microseconds since boot when fade completed
   }
   ```
 
-### `espnow_recv` Event
+### `espnow.recv` Event
 * **Allowed/Enabled by:** [`espnow.init`](#espnowinit)
 * **Structure:**
   ```lua
   {
-      tag = "espnow_recv",
+      tag = "espnow.recv",
       mac = string,        -- Sender's MAC address (e.g. "24:0a:c4:05:06:07")
       data = string,       -- Received payload data (string)
       time = integer       -- Microseconds since boot when received
   }
   ```
 
-### `espnow_send` Event
+### `espnow.send` Event
 * **Created/Triggered by:** [`espnow.send`](#espnowsend)
 * **Structure:**
   ```lua
   {
-      tag = "espnow_send",
+      tag = "espnow.send",
       mac = string,        -- Target peer's MAC address
       status = string,     -- "success" or "fail"
       time = integer       -- Microseconds since boot when result resolved
@@ -446,10 +477,10 @@ Emitted once for each valid decoded IR frame:
 ```lua
 {
     tag = "ir",
-    protocol = "sony", -- or "samsung"
+    protocol = "nec" | "samsung" | "sony" | "lg",
     address = integer,
     command = integer,
-    raw = "0xAABBCCDD",
+    raw = "0x20DF10EF",
     bits = integer,
     repeat = boolean,
     time = integer
@@ -469,14 +500,16 @@ spawn(task(function()
 end))
 ```
 
-### Compatibility and current limitations
+### Compatibility and Decoded Protocols
 
 The event is intentionally comparable to Arduino-IRremote's
 `IrReceiver.decodedIRData`: it reports a decoded protocol, address, command,
-raw value, bit count, and repeat status. It is not a complete replacement for
-Arduino-IRremote yet:
+raw value, bit count, and repeat status:
 
-* Only Sony SIRC (12, 15, and 20 bit) and Samsung32 are decoded.
+* **NEC**: Standard 8-bit address, Extended 16-bit address, 8-bit command, and repeat frames.
+* **Samsung**: 32-bit frame format and repeat codes.
+* **Sony SIRC**: 12, 15, and 20-bit variations.
+* **LG**: 28-bit frame format with 4-bit checksum and repeat codes.
 * Samsung's ordinary 8-bit command layout is supported. A valid Samsung
   16-bit command is currently reduced to its first 8 bits.
 * A duplicated Samsung 8-bit address is returned as the complete 16-bit wire
