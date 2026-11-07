@@ -96,6 +96,20 @@ git submodule update --init --recursive
    ```
   *(Replace `/dev/ttyUSB0` with the actual device port of your ESP32).*
 
+### 3. Choosing between Atmos (.atm) and Direct Lua (.lua)
+
+By default, the project compiles Atmos language (`.atm`) files from `atm/init.atm`.
+
+To switch to **pure Lua mode** (using `lua/init.lua` with the `lua-atmos` reactive runtime directly):
+```bash
+idf.py -DUSE_ATMOS=OFF build flash
+```
+
+To switch back to Atmos language mode:
+```bash
+idf.py -DUSE_ATMOS=ON build flash
+```
+
 ---
 
 ## License

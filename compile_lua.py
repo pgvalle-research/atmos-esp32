@@ -27,7 +27,7 @@ def main():
     lua_bin = os.path.abspath(sys.argv[1])
     dest_dir = os.path.abspath(sys.argv[2])
     app_src_dir = os.path.abspath(sys.argv[3])
-    module_roots = [parse_module_root(spec) for spec in sys.argv[4:]]
+    module_roots = [parse_module_root(spec) for spec in sys.argv[4:] if spec.strip()]
 
     atmos_src_dir = None
     lua_atmos_dir = None
@@ -50,6 +50,12 @@ def main():
 
     # Collect all compilation jobs: (kind, src_path, dest_path, chunk_name)
     jobs = []
+    seen_dst = set()
+
+    def add_job(kind, src, dst, name):
+        if dst not in seen_dst:
+            seen_dst.add(dst)
+            jobs.append((kind, src, dst, name))
 
     # 1. Application sources (.atm and .lua)
     has_init = False
@@ -63,7 +69,7 @@ def main():
         else:
             dst_p = os.path.join(dest_dir, rel_p)
             kind = "lua_init" if is_init else "lua"
-        jobs.append((kind, abs_p, dst_p, "@" + rel_p))
+        add_job(kind, abs_p, dst_p, "@" + rel_p)
 
     if not has_init:
         print("Error: init.atm or init.lua not found in app source directory", file=sys.stderr)
@@ -73,13 +79,13 @@ def main():
     if atmos_src_dir:
         run_lua = os.path.join(atmos_src_dir, "run.lua")
         if os.path.exists(run_lua):
-            jobs.append(("lua", run_lua, os.path.join(dest_dir, "atmos", "lang", "run.lua"), "@atmos/lang/run.lua"))
+            add_job("lua", run_lua, os.path.join(dest_dir, "atmos", "lang", "run.lua"), "@atmos/lang/run.lua")
 
     # 3. External modules (atmos, streams, esp32)
     for prefix, root in module_dirs:
         for rel_p, abs_p in iter_source_files(root, (".lua",)):
             dst_p = os.path.join(dest_dir, prefix, rel_p)
-            jobs.append(("lua", abs_p, dst_p, f"@{prefix}/{rel_p}"))
+            add_job("lua", abs_p, dst_p, f"@{prefix}/{rel_p}")
 
     # Pre-create all destination directories
     for _, _, dst_p, _ in jobs:
