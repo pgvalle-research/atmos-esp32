@@ -1,5 +1,5 @@
 val esp = require "esp32"
-val debug = require esp.debug
+val debug = esp.debug
 val gpio = esp.gpio
 val modes = require "ultrat.modes"
 val board = require "ultrat.board"

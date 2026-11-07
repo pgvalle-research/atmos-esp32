@@ -27,7 +27,7 @@ set M.S_FESQ = M.S3
 set M.S_FDIR = M.D26
 set M.S_DIR = M.S8
 
-task M.BlinkLed(gpio_pin, n, time_on, time_off) {
+set M.BlinkLed = task (gpio_pin, n, time_on, time_off) {
     gpio.mode(gpio_pin, "output")
     loop i {
         gpio.write(gpio_pin, true)

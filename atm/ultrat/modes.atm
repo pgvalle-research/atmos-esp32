@@ -4,7 +4,7 @@ val drv = require "ultrat.drv8833"
 
 val M = []
 
-task M.Select() {
+set M.Select = task () {
     var mode = 0
     loop ir on :ir {
         ;; if command is start then stop loop
@@ -73,7 +73,7 @@ task Sharingan() {
     await modes.Whiplash()
 }
 
-task M.Run(mode) {
+set M.Run = task (mode) {
     ;;;
     match mode {
         ...

@@ -15,14 +15,14 @@ task AwaitButton() {
     var cmd = 0
     watching LEARN_TIMEOUT_MS {
         loop {
-            while(cmd == 0 || cmd == M.startCmd || cmd == M.stopCmd || cmd == M.prepareCmd)
+            while((cmd == 0) || (cmd == M.startCmd) || (cmd == M.stopCmd) || (cmd == M.prepareCmd))
             val sta = await :ir [repeat=false]
             set cmd = sta.command
         }
     }
 
     if cmd == 0 => print("Timeout. Learning stoped. Try again")
-                => print("got " .. cmd)
+                => print("got " ++ cmd)
 
     cmd
 }
@@ -35,13 +35,13 @@ func printCommands() {
 
 func saveCommands() {
     prefs.begin("commands")
-    prefs.put_int("start", sta.command)
-    prefs.put_int("start", pre.command)
-    prefs.put_int("stop", sto.command)
+    prefs.put_int("start", M.startCmd)
+    prefs.put_int("prepare", M.prepareCmd)
+    prefs.put_int("stop", M.stopCmd)
     prefs.end()
 }
 
-task M.Start() {
+set M.Start = task () {
     prefs.begin("commands")
 
     ;; learning
@@ -51,18 +51,19 @@ task M.Start() {
         ;; start command
         print("awaiting start cmd")
         val sta = await AwaitButton()
-        if cmd == 0 => return
-                    => set M.startCmd = cmd
+        if sta == 0 => return()
+                    => set M.startCmd = sta
 
         ;; prepare command
         print("waiting for prepare command")
-        val cmd = await AwaitButton()
-        if cmd == 0 => return
-                    => set M.startCmd = cmd
+        val pre = await AwaitButton()
+        if pre == 0 => return()
+                    => set M.prepareCmd = pre
 
         ;; stop command
         print("waiting for stop command")
         val sto = await :ir [repeat=false]
+        set M.stopCmd = sto.command
 
         saveCommands()
         print("cmd codes saved")

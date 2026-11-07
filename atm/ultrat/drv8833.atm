@@ -42,7 +42,7 @@ func drv8833.reset() {
     gpio.write_pwm(RC2, 1023)
 }
 
-task drv8833.Move(vl, vr, dt) {
+set drv8833.Move = task (vl, vr, dt) {
     drv8833.set(vl, vr)
     await(dt)
     drv8833.reset()
