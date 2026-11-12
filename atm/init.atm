@@ -1,14 +1,38 @@
 val esp = require "esp32"
+val ir = esp.ir
 val debug = esp.debug
 val gpio = esp.gpio
-;; val modes = require "ultrat.modes"
-val board = require "ultrat.board"
+val drv = require "ultrat.drv8833"
 
 spawn debug.Mem()
 spawn debug.Fps()
-await false
+
+ir.start(15)
+gpio.mode(2, "output")
+drv.setup(4, 23, 19, 18)
+
+spawn {
+    loop {
+        await :ir [repeat=false]
+        print("hello")
+        gpio.write(2, 1)
+        await 100ms
+        gpio.write(2, 0)
+    }
+
+}
+
+loop {
+    val ir = await :ir [repeat=false]
+    match ir.command {
+        2 => drv.set(300, 300)
+        3 => drv.reset()
+    }
+}
 
 ;;;
+await false
+
 val shouldLearn = gpio.read(board.LEARN_PIN)
 if shouldLearn {
     print("hello!")
