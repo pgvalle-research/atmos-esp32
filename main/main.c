@@ -67,7 +67,7 @@ static void register_esp_bindings(lua_State *L) {
     lua_setglobal(L, "_esp");
 }
 
-static void init_filesystem() {
+static bool init_filesystem(void) {
     esp_vfs_littlefs_conf_t conf = {
         .base_path = LUA_MOUNT_PATH,
         .partition_label = LUA_PARTITION_LABEL,
@@ -78,9 +78,10 @@ static void init_filesystem() {
     esp_err_t err = esp_vfs_littlefs_register(&conf);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to mount or format filesystem: %s", esp_err_to_name(err));
-    } else {
-        ESP_LOGI(TAG, "Mounted Lua filesystem at %s", LUA_MOUNT_PATH);
+        return false;
     }
+    ESP_LOGI(TAG, "Mounted Lua filesystem at %s", LUA_MOUNT_PATH);
+    return true;
 }
 
 static bool set_lua_package_path(lua_State *L) {
@@ -141,11 +142,17 @@ static int run_lua_file() {
         status = lua_resume(T, L, 0, &nresults);
         if (status == LUA_OK) {
             lua_pop(T, nresults);
+        } else if (status == LUA_YIELD) {
+            ESP_LOGW(TAG, "Lua app coroutine yielded unexpectedly (%d results)", nresults);
+            lua_pop(T, nresults);
         } else {
-            size_t len;
-            const char *err_msg = luaL_tolstring(T, -1, &len);
-            ESP_LOGE(TAG, "Error running Lua script '%s': %s", LUA_ENTRYPOINT_PATH, err_msg);
-            lua_pop(T, 2); // Pop both the formatted string and the original error object
+            const char *err_msg = lua_tostring(T, -1);
+            luaL_traceback(T, T, err_msg, 0);
+            const char *traceback = lua_tostring(T, -1);
+            ESP_LOGE(TAG, "Error running Lua script '%s':\n%s",
+                     LUA_ENTRYPOINT_PATH,
+                     traceback ? traceback : (err_msg ? err_msg : "unknown error"));
+            lua_pop(T, 2); // Pop traceback string and original error object
         }
     }
 
@@ -165,7 +172,13 @@ void app_main(void) {
     }
     ESP_ERROR_CHECK(ret);
 
-    init_filesystem();
+    if (!init_filesystem()) {
+        ESP_LOGE(TAG, "Halting: Lua filesystem could not be initialized");
+        while (1) {
+            vTaskDelay(pdMS_TO_TICKS(1000));
+        }
+    }
+
     ESP_LOGI(TAG, "Running %s", LUA_ENTRYPOINT_PATH);
     int status = run_lua_file();
     ESP_LOGI(TAG, "Lua app exited with status %d", status);

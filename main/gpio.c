@@ -15,7 +15,7 @@
 #include "lauxlib.h"
 #include "soc/soc_caps.h"
 
-#define HW_EVENT_QUEUE_LEN 16
+#define HW_EVENT_QUEUE_LEN 32
 #ifndef SOC_GPIO_PIN_COUNT
 #define SOC_GPIO_PIN_COUNT 48
 #endif
@@ -82,9 +82,6 @@ static void detach_pin_internal(int pin) {
 }
 
 static QueueHandle_t get_hw_event_queue(void) {
-    if (s_hw_event_queue == NULL) {
-        s_hw_event_queue = xQueueCreate(HW_EVENT_QUEUE_LEN, sizeof(hw_event_t));
-    }
     return s_hw_event_queue;
 }
 
@@ -622,6 +619,10 @@ static const luaL_Reg s_gpio_lib[] = {
 };
 
 void register_gpio(lua_State *L) {
+    if (s_hw_event_queue == NULL) {
+        s_hw_event_queue = xQueueCreate(HW_EVENT_QUEUE_LEN, sizeof(hw_event_t));
+    }
+    init_pwm_tracking();
     luaL_newlib(L, s_gpio_lib);
     lua_setfield(L, -2, "gpio");
 }

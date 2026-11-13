@@ -29,7 +29,7 @@ typedef enum {
 typedef struct {
     espnow_event_type_t type;
     uint8_t mac[6];
-    uint8_t *data; // NULL for SEND events
+    uint8_t data[ESP_NOW_MAX_DATA_LEN];
     int len;       // payload length for RECV, status (0=success, 1=fail) for SEND
     int64_t time_us;
 } espnow_event_t;
@@ -56,24 +56,21 @@ static void espnow_recv_cb(const esp_now_recv_info_t *recv_info, const uint8_t *
         return;
     }
 
-    uint8_t *buf = malloc(len);
-    if (buf == NULL) {
-        ESP_LOGE(TAG, "failed to allocate memory for recv packet");
-        return;
+    if (len > ESP_NOW_MAX_DATA_LEN) {
+        len = ESP_NOW_MAX_DATA_LEN;
     }
-    memcpy(buf, data, len);
 
     espnow_event_t ev;
     ev.type = ESPNOW_EVENT_RECV;
     memcpy(ev.mac, recv_info->src_addr, 6);
-    ev.data = buf;
+    if (len > 0 && data != NULL) {
+        memcpy(ev.data, data, len);
+    }
     ev.len = len;
     ev.time_us = esp_timer_get_time();
 
     BaseType_t task_woken = pdFALSE;
-    if (xQueueSendFromISR(s_espnow_queue, &ev, &task_woken) != pdTRUE) {
-        free(buf); // Queue full, drop packet
-    }
+    (void)xQueueSendFromISR(s_espnow_queue, &ev, &task_woken);
     if (task_woken == pdTRUE) {
         portYIELD_FROM_ISR();
     }
@@ -87,7 +84,6 @@ static void espnow_send_cb(const esp_now_send_info_t *tx_info, esp_now_send_stat
     espnow_event_t ev = {
         .type = ESPNOW_EVENT_SEND,
         .len = (status == ESP_NOW_SEND_SUCCESS) ? 0 : 1, // 0 = success, 1 = fail
-        .data = NULL,
         .time_us = esp_timer_get_time()
     };
     memcpy(ev.mac, tx_info->des_addr, 6);
@@ -172,6 +168,18 @@ static int l_espnow_init(lua_State *L) {
     err = esp_now_register_send_cb(espnow_send_cb);
     if (err != ESP_OK) {
         return luaL_error(L, "failed to register send callback: %s", esp_err_to_name(err));
+    }
+
+    // Auto-register broadcast peer (ff:ff:ff:ff:ff:ff) by default
+    static const uint8_t s_broadcast_mac[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+    if (!esp_now_is_peer_exist(s_broadcast_mac)) {
+        esp_now_peer_info_t broadcast_peer = {
+            .channel = 0,
+            .ifidx = WIFI_IF_STA,
+            .encrypt = false,
+        };
+        memcpy(broadcast_peer.peer_addr, s_broadcast_mac, 6);
+        (void)esp_now_add_peer(&broadcast_peer);
     }
 
     s_espnow_initialized = true;
@@ -268,9 +276,7 @@ static int l_espnow_next_event(lua_State *L) {
              ev.mac[0], ev.mac[1], ev.mac[2], ev.mac[3], ev.mac[4], ev.mac[5]);
 
     if (ev.type == ESPNOW_EVENT_RECV) {
-        // Copy data payload to Lua stack and free C memory immediately to prevent leaks on subsequent OOM errors
         lua_pushlstring(L, (const char *)ev.data, ev.len);
-        free(ev.data);
 
         lua_createtable(L, 0, 4);
         lua_insert(L, -2);
