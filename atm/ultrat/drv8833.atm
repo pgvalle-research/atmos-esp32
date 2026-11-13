@@ -10,14 +10,10 @@ val RC1 = 2
 val RC2 = 3
 
 func drv8833.setup(l1, l2, r1, r2) {
-    gpio.setup_pwm(LC1, 25000, 10);
-    gpio.setup_pwm(LC2, 25000, 10);
-    gpio.setup_pwm(RC1, 25000, 10);
-    gpio.setup_pwm(RC2, 25000, 10);
-    gpio.attach_pwm(l1, LC1);
-    gpio.attach_pwm(l2, LC2);
-    gpio.attach_pwm(r1, RC1);
-    gpio.attach_pwm(r2, RC2);
+    gpio.attach_pwm(l1, LC1, 25000, 10);
+    gpio.attach_pwm(l2, LC2, 25000, 10);
+    gpio.attach_pwm(r1, RC1, 25000, 10);
+    gpio.attach_pwm(r2, RC2, 25000, 10);
 }
 
 func drv8833.set(vl, vr) {
