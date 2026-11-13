@@ -44,6 +44,43 @@ static bool s_fade_service_installed = false;
 static adc_oneshot_unit_handle_t s_adc1_handle = NULL;
 static adc_oneshot_unit_handle_t s_adc2_handle = NULL;
 
+typedef struct {
+    bool configured;
+    bool initialized;
+    int freq;
+    int resolution;
+} pwm_channel_t;
+
+static pwm_channel_t s_pwm_channels[LEDC_CHANNEL_MAX];
+static int s_pin_pwm_channel[GPIO_MAX_TRACKED];
+static bool s_pwm_tracking_inited = false;
+
+static void init_pwm_tracking(void) {
+    if (!s_pwm_tracking_inited) {
+        for (int i = 0; i < LEDC_CHANNEL_MAX; ++i) {
+            s_pwm_channels[i].configured = false;
+            s_pwm_channels[i].initialized = false;
+            s_pwm_channels[i].freq = 0;
+            s_pwm_channels[i].resolution = 0;
+        }
+        for (int i = 0; i < GPIO_MAX_TRACKED; ++i) {
+            s_pin_pwm_channel[i] = -1;
+        }
+        s_pwm_tracking_inited = true;
+    }
+}
+
+static void detach_pin_internal(int pin) {
+    init_pwm_tracking();
+    if (pin < 0 || pin >= GPIO_MAX_TRACKED) return;
+    if (s_pin_pwm_channel[pin] == -1) return;
+
+    (void)gpio_output_disable((gpio_num_t)pin);
+    (void)gpio_reset_pin((gpio_num_t)pin);
+
+    s_pin_pwm_channel[pin] = -1;
+}
+
 static QueueHandle_t get_hw_event_queue(void) {
     if (s_hw_event_queue == NULL) {
         s_hw_event_queue = xQueueCreate(HW_EVENT_QUEUE_LEN, sizeof(hw_event_t));
@@ -125,9 +162,14 @@ static void IRAM_ATTR gpio_isr_handler(void *arg) {
     }
 }
 
-static int l_gpio_mode(lua_State *L) {
+static int l_gpio_setup(lua_State *L) {
     int pin = check_pin(L, 1);
     const char *mode = luaL_checkstring(L, 2);
+
+    init_pwm_tracking();
+    if (s_pin_pwm_channel[pin] != -1) {
+        detach_pin_internal(pin);
+    }
 
     gpio_config_t conf = {
         .pin_bit_mask = 1ULL << pin,
@@ -151,6 +193,8 @@ static int l_gpio_mode(lua_State *L) {
     } else if (strcmp(mode, "open_drain") == 0) {
         check_output_pin(L, 1);
         conf.mode = GPIO_MODE_OUTPUT_OD;
+    } else if (strcmp(mode, "pwm") == 0) {
+        return luaL_error(L, "invalid gpio mode 'pwm'; use gpio.setup_pwm and gpio.attach_pwm instead");
     } else {
         return luaL_error(L, "invalid gpio mode '%s'", mode);
     }
@@ -350,17 +394,16 @@ static IRAM_ATTR bool pwm_fade_end_callback(const ledc_cb_param_t *param, void *
 }
 
 static int l_gpio_setup_pwm(lua_State *L) {
-    int pin = (int)luaL_checkinteger(L, 1);
-    luaL_argcheck(L, GPIO_IS_VALID_OUTPUT_GPIO(pin), 1, "GPIO pin cannot be used as output");
+    init_pwm_tracking();
 
-    int channel = (int)luaL_checkinteger(L, 2);
-    luaL_argcheck(L, channel >= 0 && channel < LEDC_CHANNEL_MAX, 2, "invalid LEDC channel");
+    int channel = (int)luaL_checkinteger(L, 1);
+    luaL_argcheck(L, channel >= 0 && channel < LEDC_CHANNEL_MAX, 1, "invalid LEDC channel");
 
-    int freq = (int)luaL_checkinteger(L, 3);
-    luaL_argcheck(L, freq > 0, 3, "frequency must be positive");
+    int freq = (int)luaL_checkinteger(L, 2);
+    luaL_argcheck(L, freq > 0, 2, "frequency must be positive");
 
-    int resolution = (int)luaL_checkinteger(L, 4);
-    luaL_argcheck(L, resolution >= 1 && resolution <= 20, 4, "resolution must be between 1 and 20");
+    int resolution = (int)luaL_checkinteger(L, 3);
+    luaL_argcheck(L, resolution >= 1 && resolution <= 20, 3, "resolution must be between 1 and 20");
 
     int timer_num = channel % 4;
 
@@ -374,20 +417,6 @@ static int l_gpio_setup_pwm(lua_State *L) {
     esp_err_t err = ledc_timer_config(&ledc_timer);
     if (err != ESP_OK) {
         return luaL_error(L, "ledc_timer_config failed: %s", esp_err_to_name(err));
-    }
-
-    ledc_channel_config_t ledc_channel = {
-        .speed_mode     = LEDC_LOW_SPEED_MODE,
-        .channel        = (ledc_channel_t)channel,
-        .timer_sel      = (ledc_timer_t)timer_num,
-        .intr_type      = LEDC_INTR_DISABLE,
-        .gpio_num       = pin,
-        .duty           = 0,
-        .hpoint         = 0
-    };
-    err = ledc_channel_config(&ledc_channel);
-    if (err != ESP_OK) {
-        return luaL_error(L, "ledc_channel_config failed: %s", esp_err_to_name(err));
     }
 
     if (!s_fade_service_installed) {
@@ -410,6 +439,84 @@ static int l_gpio_setup_pwm(lua_State *L) {
     err = ledc_cb_register(LEDC_LOW_SPEED_MODE, (ledc_channel_t)channel, &callbacks, NULL);
     if (err != ESP_OK) {
         return luaL_error(L, "ledc_cb_register failed: %s", esp_err_to_name(err));
+    }
+
+    s_pwm_channels[channel].configured = true;
+    s_pwm_channels[channel].freq = freq;
+    s_pwm_channels[channel].resolution = resolution;
+
+    return 0;
+}
+
+static int l_gpio_attach_pwm(lua_State *L) {
+    init_pwm_tracking();
+
+    int pin = check_output_pin(L, 1);
+    int channel = (int)luaL_checkinteger(L, 2);
+    luaL_argcheck(L, channel >= 0 && channel < LEDC_CHANNEL_MAX, 2, "invalid LEDC channel");
+
+    if (!s_pwm_channels[channel].configured) {
+        return luaL_error(L, "PWM channel %d has not been configured (call setup_pwm first)", channel);
+    }
+
+    if (s_pin_pwm_channel[pin] == channel) {
+        return 0;
+    }
+
+    if (s_pin_pwm_channel[pin] != -1) {
+        detach_pin_internal(pin);
+    }
+
+    if (!s_pwm_channels[channel].initialized) {
+        int timer_num = channel % 4;
+        ledc_channel_config_t ledc_channel = {
+            .speed_mode     = LEDC_LOW_SPEED_MODE,
+            .channel        = (ledc_channel_t)channel,
+            .timer_sel      = (ledc_timer_t)timer_num,
+            .intr_type      = LEDC_INTR_DISABLE,
+            .gpio_num       = pin,
+            .duty           = 0,
+            .hpoint         = 0
+        };
+        esp_err_t err = ledc_channel_config(&ledc_channel);
+        if (err != ESP_OK) {
+            return luaL_error(L, "ledc_channel_config failed: %s", esp_err_to_name(err));
+        }
+        s_pwm_channels[channel].initialized = true;
+    } else {
+        esp_err_t err = ledc_set_pin(pin, LEDC_LOW_SPEED_MODE, (ledc_channel_t)channel);
+        if (err != ESP_OK) {
+            return luaL_error(L, "ledc_set_pin failed: %s", esp_err_to_name(err));
+        }
+    }
+
+    s_pin_pwm_channel[pin] = channel;
+
+    return 0;
+}
+
+static int l_gpio_detach_pwm(lua_State *L) {
+    init_pwm_tracking();
+
+    int pin = check_pin(L, 1);
+    if (s_pin_pwm_channel[pin] != -1) {
+        detach_pin_internal(pin);
+    } else {
+        gpio_reset_pin((gpio_num_t)pin);
+    }
+
+    return 0;
+}
+
+static int l_gpio_stop_pwm(lua_State *L) {
+    init_pwm_tracking();
+
+    int channel = (int)luaL_checkinteger(L, 1);
+    luaL_argcheck(L, channel >= 0 && channel < LEDC_CHANNEL_MAX, 1, "invalid LEDC channel");
+
+    esp_err_t err = ledc_stop(LEDC_LOW_SPEED_MODE, (ledc_channel_t)channel, 0);
+    if (err != ESP_OK) {
+        return luaL_error(L, "ledc_stop failed: %s", esp_err_to_name(err));
     }
 
     return 0;
@@ -497,13 +604,17 @@ static int l_gpio_next_event(lua_State *L) {
 }
 
 static const luaL_Reg s_gpio_lib[] = {
-    {"mode", l_gpio_mode},
+    {"setup", l_gpio_setup},
+    {"mode", l_gpio_setup},
     {"read", l_gpio_read},
     {"write", l_gpio_write},
     {"watch", l_gpio_watch},
     {"unwatch", l_gpio_unwatch},
     {"read_adc", l_gpio_read_adc},
     {"setup_pwm", l_gpio_setup_pwm},
+    {"attach_pwm", l_gpio_attach_pwm},
+    {"detach_pwm", l_gpio_detach_pwm},
+    {"stop_pwm", l_gpio_stop_pwm},
     {"write_pwm", l_gpio_write_pwm},
     {"fade_pwm", l_gpio_fade_pwm},
     {"next_event", l_gpio_next_event},

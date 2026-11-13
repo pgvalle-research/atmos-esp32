@@ -3,17 +3,10 @@ local _c = _esp.gpio
 
 local M = {}
 
-function M.mode(pin, mode, ...)
-    if mode == "pwm" then
-        local channel, freq, resolution = ...
-        if not channel or not freq or not resolution then
-            error("PWM mode requires: channel, frequency, resolution", 2)
-        end
-        return _c.setup_pwm(pin, channel, freq, resolution)
-    else
-        return _c.mode(pin, mode)
-    end
+function M.setup(pin, mode)
+    return _c.setup(pin, mode)
 end
+M.mode = M.setup
 
 function M.read(pin)
     return _c.read(pin)
@@ -33,6 +26,22 @@ end
 
 function M.read_adc(pin, atten)
     return _c.read_adc(pin, atten)
+end
+
+function M.setup_pwm(channel, freq, resolution)
+    return _c.setup_pwm(channel, freq, resolution)
+end
+
+function M.attach_pwm(pin, channel)
+    return _c.attach_pwm(pin, channel)
+end
+
+function M.detach_pwm(pin)
+    return _c.detach_pwm(pin)
+end
+
+function M.stop_pwm(channel)
+    return _c.stop_pwm(channel)
 end
 
 function M.write_pwm(channel, duty)

@@ -2,60 +2,23 @@ val esp = require "esp32"
 val ir = esp.ir
 val debug = esp.debug
 val gpio = esp.gpio
-val drv = require "ultrat.drv8833"
 
 spawn debug.Mem()
 spawn debug.Fps()
 
 ir.start(15)
-gpio.mode(2, "output")
-drv.setup(4, 23, 19, 18)
 
-spawn {
-    loop {
-        await :ir [repeat=false]
-        print("hello")
-        gpio.write(2, 1)
-        await 100ms
-        gpio.write(2, 0)
-    }
+gpio.setup_pwm(0, 25000, 10)
 
+loop _, p in [25, 26, 32, 33] {
+    gpio.attach_pwm(p, 0)
+    gpio.write_pwm(0, 0)
+
+    gpio.fade_pwm(0, 1023, 2000)
+    await :gpio.pwm_fade
+    await 200ms
+    gpio.fade_pwm(0, 0, 2000)
+    await :gpio.pwm_fade
+    await 200ms
+    gpio.detach_pwm(p)
 }
-
-loop {
-    val ir = await :ir [repeat=false]
-    match ir.command {
-        2 => drv.set(300, 300)
-        3 => drv.reset()
-    }
-}
-
-;;;
-await false
-
-val shouldLearn = gpio.read(board.LEARN_PIN)
-if shouldLearn {
-    print("hello!")
-    ;; ...
-} else {
-    print("lael!")
-    ;; ...
-}
-
-;; turned off
-val mode = await modes.Select()
-;; turned on
-loop {
-    watching :ir [command=stop] {
-        ;; prepared
-        await :ir [command=iniciar, repeat=false]
-        ;; in combat
-        spawn modes.Run(mode)
-        await :ir [command=iniciar, repeat=false]
-    }
-
-    ;; stopped
-    ;; blink
-    await :ir [command=prepare, repeat=false]
-}
-;;;

@@ -14,12 +14,16 @@ local clock, gpio, espnow, ir = esp32.clock, esp32.gpio, esp32.espnow, esp32.ir
 * **[1. esp32.clock](#1-esp32clock)**
   * [`clock.now`](#clocknow)
 * **[2. esp32.gpio](#2-esp32gpio)**
-  * [`gpio.mode`](#gpiomode)
+  * [`gpio.setup`](#gpiosetup)
   * [`gpio.read`](#gpioread)
   * [`gpio.write`](#gpiowrite)
   * [`gpio.watch`](#gpiowatch)
   * [`gpio.unwatch`](#gpiounwatch)
   * [`gpio.read_adc`](#gpioread_adc)
+  * [`gpio.setup_pwm`](#gpiosetup_pwm)
+  * [`gpio.attach_pwm`](#gpioattach_pwm)
+  * [`gpio.detach_pwm`](#gpiodetach_pwm)
+  * [`gpio.stop_pwm`](#gpiostop_pwm)
   * [`gpio.write_pwm`](#gpiowrite_pwm)
   * [`gpio.fade_pwm`](#gpiofade_pwm)
 * **[3. esp32.espnow](#3-esp32espnow)**
@@ -71,9 +75,9 @@ The clock module manages logical time and high-precision timing.
 ## 2. `esp32.gpio`
 The GPIO module handles all physical pin interactions including digital I/O, edge interrupts, ADC oneshot reads, and hardware-controlled PWM.
 
-### `gpio.mode`
-Configures a physical pin's routing and buffers.
-* **Syntax:** `gpio.mode(pin, mode, [extra1, extra2, extra3])`
+### `gpio.setup`
+Configures a physical pin's digital routing and buffers (`gpio.mode` is available as a backwards-compatible alias). If the pin was previously attached to a PWM channel, changing its mode (e.g. to `"input"` or `"output"`) automatically detaches it from the PWM peripheral.
+* **Syntax:** `gpio.setup(pin, mode)`
 * **Arguments:**
   * `pin`: `integer` (GPIO pin number).
   * `mode`: `string`. Supported values:
@@ -82,18 +86,13 @@ Configures a physical pin's routing and buffers.
     * `"input_pulldown"`: Digital input with internal pull-down resistor.
     * `"output"`: Digital push-pull output.
     * `"open_drain"`: Digital open-drain output.
-    * `"pwm"`: Configure the pin for hardware PWM.
-  * **PWM Mode Additional Arguments:**
-    * `channel`: `integer` (LEDC channel `0` to `7`). Timers `0` to `3` are assigned automatically via `channel % 4`.
-    * `frequency`: `integer` (Frequency in Hz).
-    * `resolution`: `integer` (Duty resolution in bits, `1` to `20`).
 * **Example:**
   ```lua
   -- Configure pin 22 as a normal output
-  gpio.mode(22, "output")
+  gpio.setup(22, "output")
 
-  -- Configure pin 23 as a PWM output on Channel 0, at 5kHz with 13-bit resolution (0-8191 duty)
-  gpio.mode(23, "pwm", 0, 5000, 13)
+  -- Configure pin 34 as a digital input with pull-up
+  gpio.setup(34, "input_pullup")
   ```
 
 ### `gpio.read`
@@ -164,6 +163,52 @@ Reads the raw analog voltage on a pin.
   local raw = gpio.read_adc(34, "12db")
   local volts = (raw / 4095) * 3.3
   print("Sensor Voltage: " .. volts)
+  ```
+
+### `gpio.setup_pwm`
+Configures a hardware LEDC PWM channel and its underlying timer.
+* **Syntax:** `gpio.setup_pwm(channel, frequency, resolution)`
+* **Arguments:**
+  * `channel`: `integer` (LEDC channel `0` to `7`). Hardware timers `0` to `3` are assigned automatically via `channel % 4`.
+  * `frequency`: `integer` (Frequency in Hz).
+  * `resolution`: `integer` (Duty resolution in bits, `1` to `20`).
+* **Example:**
+  ```lua
+  -- Configure Channel 0 at 25kHz with 10-bit resolution (0-1023 duty range)
+  gpio.setup_pwm(0, 25000, 10)
+  ```
+
+### `gpio.attach_pwm`
+Attaches an output-capable GPIO pin to a configured PWM channel. If the pin was previously attached to another channel, or if the channel already had another pin attached, the previous binding is cleanly detached.
+* **Syntax:** `gpio.attach_pwm(pin, channel)`
+* **Arguments:**
+  * `pin`: `integer` (Output-capable GPIO pin number).
+  * `channel`: `integer` (Configured LEDC channel `0` to `7`).
+* **Example:**
+  ```lua
+  -- Attach pin 25 to Channel 0
+  gpio.attach_pwm(25, 0)
+  ```
+
+### `gpio.detach_pwm`
+Detaches a pin from its PWM channel and resets the pin back to default digital GPIO state. The PWM channel itself and any other pins bound to the same channel continue running uninterrupted.
+* **Syntax:** `gpio.detach_pwm(pin)`
+* **Arguments:**
+  * `pin`: `integer` (GPIO pin number).
+* **Example:**
+  ```lua
+  -- Detach pin 25 from PWM (pin returns to GPIO input)
+  gpio.detach_pwm(25)
+  ```
+
+### `gpio.stop_pwm`
+Stops the PWM output on a channel, driving and holding the output at level 0.
+* **Syntax:** `gpio.stop_pwm(channel)`
+* **Arguments:**
+  * `channel`: `integer` (LEDC channel `0` to `7`).
+* **Example:**
+  ```lua
+  gpio.stop_pwm(0)
   ```
 
 ### `gpio.write_pwm`
