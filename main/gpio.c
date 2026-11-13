@@ -393,54 +393,6 @@ static IRAM_ATTR bool pwm_fade_end_callback(const ledc_cb_param_t *param, void *
     return task_woken == pdTRUE;
 }
 
-static esp_err_t setup_pwm_channel_internal(int channel, int freq, int resolution) {
-    if (channel < 0 || channel >= LEDC_CHANNEL_MAX || freq <= 0 || resolution < 1 || resolution > 20) {
-        return ESP_ERR_INVALID_ARG;
-    }
-
-    int timer_num = channel % 4;
-
-    ledc_timer_config_t ledc_timer = {
-        .speed_mode       = LEDC_LOW_SPEED_MODE,
-        .timer_num        = (ledc_timer_t)timer_num,
-        .duty_resolution  = (ledc_timer_bit_t)resolution,
-        .freq_hz          = freq,
-        .clk_cfg          = LEDC_AUTO_CLK
-    };
-    esp_err_t err = ledc_timer_config(&ledc_timer);
-    if (err != ESP_OK) {
-        return err;
-    }
-
-    if (!s_fade_service_installed) {
-        err = ledc_fade_func_install(0);
-        if (err == ESP_OK || err == ESP_ERR_INVALID_STATE) {
-            s_fade_service_installed = true;
-        } else {
-            return err;
-        }
-    }
-
-    QueueHandle_t queue = get_hw_event_queue();
-    if (queue == NULL) {
-        return ESP_ERR_NO_MEM;
-    }
-
-    ledc_cbs_t callbacks = {
-        .fade_cb = pwm_fade_end_callback
-    };
-    err = ledc_cb_register(LEDC_LOW_SPEED_MODE, (ledc_channel_t)channel, &callbacks, NULL);
-    if (err != ESP_OK) {
-        return err;
-    }
-
-    s_pwm_channels[channel].configured = true;
-    s_pwm_channels[channel].freq = freq;
-    s_pwm_channels[channel].resolution = resolution;
-
-    return ESP_OK;
-}
-
 static int l_gpio_setup_pwm(lua_State *L) {
     init_pwm_tracking();
 
@@ -453,10 +405,45 @@ static int l_gpio_setup_pwm(lua_State *L) {
     int resolution = (int)luaL_checkinteger(L, 3);
     luaL_argcheck(L, resolution >= 1 && resolution <= 20, 3, "resolution must be between 1 and 20");
 
-    esp_err_t err = setup_pwm_channel_internal(channel, freq, resolution);
+    int timer_num = channel % 4;
+
+    ledc_timer_config_t ledc_timer = {
+        .speed_mode       = LEDC_LOW_SPEED_MODE,
+        .timer_num        = (ledc_timer_t)timer_num,
+        .duty_resolution  = (ledc_timer_bit_t)resolution,
+        .freq_hz          = freq,
+        .clk_cfg          = LEDC_AUTO_CLK
+    };
+    esp_err_t err = ledc_timer_config(&ledc_timer);
     if (err != ESP_OK) {
-        return luaL_error(L, "setup_pwm failed: %s", esp_err_to_name(err));
+        return luaL_error(L, "ledc_timer_config failed: %s", esp_err_to_name(err));
     }
+
+    if (!s_fade_service_installed) {
+        err = ledc_fade_func_install(0);
+        if (err == ESP_OK || err == ESP_ERR_INVALID_STATE) {
+            s_fade_service_installed = true;
+        } else {
+            return luaL_error(L, "ledc_fade_func_install failed: %s", esp_err_to_name(err));
+        }
+    }
+
+    QueueHandle_t queue = get_hw_event_queue();
+    if (queue == NULL) {
+        return luaL_error(L, "failed to initialize shared hardware event queue");
+    }
+
+    ledc_cbs_t callbacks = {
+        .fade_cb = pwm_fade_end_callback
+    };
+    err = ledc_cb_register(LEDC_LOW_SPEED_MODE, (ledc_channel_t)channel, &callbacks, NULL);
+    if (err != ESP_OK) {
+        return luaL_error(L, "ledc_cb_register failed: %s", esp_err_to_name(err));
+    }
+
+    s_pwm_channels[channel].configured = true;
+    s_pwm_channels[channel].freq = freq;
+    s_pwm_channels[channel].resolution = resolution;
 
     return 0;
 }
@@ -468,44 +455,8 @@ static int l_gpio_attach_pwm(lua_State *L) {
     int channel = (int)luaL_checkinteger(L, 2);
     luaL_argcheck(L, channel >= 0 && channel < LEDC_CHANNEL_MAX, 2, "invalid LEDC channel");
 
-    // Optional channel configuration: attach_pwm(pin, channel, freq, resolution) or (pin, channel, {freq=..., resolution=...})
-    int top = lua_gettop(L);
-    if (top >= 3 && !lua_isnil(L, 3)) {
-        int freq = 0;
-        int resolution = 0;
-
-        if (lua_istable(L, 3)) {
-            lua_getfield(L, 3, "freq");
-            if (lua_isnil(L, -1)) {
-                lua_pop(L, 1);
-                lua_rawgeti(L, 3, 1);
-            }
-            freq = (int)luaL_checkinteger(L, -1);
-            lua_pop(L, 1);
-
-            lua_getfield(L, 3, "resolution");
-            if (lua_isnil(L, -1)) {
-                lua_pop(L, 1);
-                lua_rawgeti(L, 3, 2);
-            }
-            resolution = (int)luaL_checkinteger(L, -1);
-            lua_pop(L, 1);
-        } else {
-            freq = (int)luaL_checkinteger(L, 3);
-            resolution = (int)luaL_checkinteger(L, 4);
-        }
-
-        luaL_argcheck(L, freq > 0, 3, "frequency must be positive");
-        luaL_argcheck(L, resolution >= 1 && resolution <= 20, 4, "resolution must be between 1 and 20");
-
-        esp_err_t err = setup_pwm_channel_internal(channel, freq, resolution);
-        if (err != ESP_OK) {
-            return luaL_error(L, "setup_pwm failed: %s", esp_err_to_name(err));
-        }
-    } else {
-        if (!s_pwm_channels[channel].configured) {
-            return luaL_error(L, "PWM channel %d has not been configured (pass freq and resolution, or call setup_pwm first)", channel);
-        }
+    if (!s_pwm_channels[channel].configured) {
+        return luaL_error(L, "PWM channel %d has not been configured (call setup_pwm first)", channel);
     }
 
     if (s_pin_pwm_channel[pin] == channel) {

@@ -179,21 +179,15 @@ Configures a hardware LEDC PWM channel and its underlying timer.
   ```
 
 ### `gpio.attach_pwm`
-Attaches an output-capable GPIO pin to a PWM channel. Multiple pins can be bound to the same PWM channel. If the pin was previously attached to a different PWM channel, its previous binding is detached first.
-* **Syntax:** `gpio.attach_pwm(pin, channel[, frequency, resolution])`
+Attaches an output-capable GPIO pin to a configured PWM channel. Multiple pins can be bound to the same PWM channel. If the pin was previously attached to a different PWM channel, its previous binding is detached first.
+* **Syntax:** `gpio.attach_pwm(pin, channel)`
 * **Arguments:**
   * `pin`: `integer` (Output-capable GPIO pin number).
-  * `channel`: `integer` (LEDC channel `0` to `7`).
-  * `frequency`: `integer` (Optional: frequency in Hz).
-  * `resolution`: `integer` (Optional: duty resolution in bits, `1` to `20`).
-* **Note:** When `frequency` and `resolution` are provided, `attach_pwm` configures the channel's timer and binds the pin in a single call. If omitted, the channel must have been previously configured via `gpio.setup_pwm(channel, freq, res)`.
+  * `channel`: `integer` (Configured LEDC channel `0` to `7`).
 * **Example:**
   ```lua
-  -- Configure channel 0 and attach pin 25 in one step (positional)
-  gpio.attach_pwm(25, 0, 25000, 10)
-
-  -- Attach pin 26 to the same already-configured channel 0
-  gpio.attach_pwm(26, 0)
+  -- Attach pin 25 to Channel 0
+  gpio.attach_pwm(25, 0)
   ```
 
 ### `gpio.detach_pwm`

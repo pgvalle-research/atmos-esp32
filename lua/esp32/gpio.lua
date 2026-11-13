@@ -32,8 +32,8 @@ function M.setup_pwm(channel, freq, resolution)
     return _c.setup_pwm(channel, freq, resolution)
 end
 
-function M.attach_pwm(pin, channel, ...)
-    return _c.attach_pwm(pin, channel, ...)
+function M.attach_pwm(pin, channel)
+    return _c.attach_pwm(pin, channel)
 end
 
 function M.detach_pwm(pin)
