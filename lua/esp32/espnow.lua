@@ -19,6 +19,14 @@ function M.get_mac()
     return _c.get_mac()
 end
 
+function M.get_channel()
+    return _c.get_channel()
+end
+
+function M.set_channel(channel)
+    return _c.set_channel(channel)
+end
+
 function M.step()
     while true do
         local ev = _c.next_event()

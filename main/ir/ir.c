@@ -22,7 +22,7 @@
 #define IR_RX_SYMBOLS             96
 #define IR_CAPTURE_QUEUE_LEN      1
 #define IR_EVENT_QUEUE_LEN        16
-#define IR_WORKER_STACK_WORDS     3072
+#define IR_WORKER_STACK_WORDS     1536
 #define IR_WORKER_PRIORITY        10
 #define IR_DEFAULT_GLITCH_NS      1250U
 #define IR_DEFAULT_IDLE_NS        15000000U

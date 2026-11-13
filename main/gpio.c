@@ -44,6 +44,10 @@ static bool s_fade_service_installed = false;
 static adc_oneshot_unit_handle_t s_adc1_handle = NULL;
 static adc_oneshot_unit_handle_t s_adc2_handle = NULL;
 
+#define MAX_ADC_CHANNELS 10
+static int8_t s_adc1_chan_atten[MAX_ADC_CHANNELS] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
+static int8_t s_adc2_chan_atten[MAX_ADC_CHANNELS] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
+
 typedef struct {
     bool configured;
     bool initialized;
@@ -347,13 +351,28 @@ static int l_gpio_read_adc(lua_State *L) {
         return luaL_error(L, "unknown ADC unit %d", unit);
     }
 
-    adc_oneshot_chan_cfg_t config = {
-        .bitwidth = ADC_BITWIDTH_DEFAULT,
-        .atten = atten,
-    };
-    err = adc_oneshot_config_channel(handle, channel, &config);
-    if (err != ESP_OK) {
-        return luaL_error(L, "adc_oneshot_config_channel failed: %s", esp_err_to_name(err));
+    int8_t *chan_atten_cache = (unit == ADC_UNIT_1) ? s_adc1_chan_atten : s_adc2_chan_atten;
+    if (channel >= 0 && channel < MAX_ADC_CHANNELS) {
+        if (chan_atten_cache[channel] != (int8_t)atten) {
+            adc_oneshot_chan_cfg_t config = {
+                .bitwidth = ADC_BITWIDTH_DEFAULT,
+                .atten = atten,
+            };
+            err = adc_oneshot_config_channel(handle, channel, &config);
+            if (err != ESP_OK) {
+                return luaL_error(L, "adc_oneshot_config_channel failed: %s", esp_err_to_name(err));
+            }
+            chan_atten_cache[channel] = (int8_t)atten;
+        }
+    } else {
+        adc_oneshot_chan_cfg_t config = {
+            .bitwidth = ADC_BITWIDTH_DEFAULT,
+            .atten = atten,
+        };
+        err = adc_oneshot_config_channel(handle, channel, &config);
+        if (err != ESP_OK) {
+            return luaL_error(L, "adc_oneshot_config_channel failed: %s", esp_err_to_name(err));
+        }
     }
 
     int raw_val = 0;
@@ -523,7 +542,13 @@ static int l_gpio_write_pwm(lua_State *L) {
     int channel = (int)luaL_checkinteger(L, 1);
     luaL_argcheck(L, channel >= 0 && channel < LEDC_CHANNEL_MAX, 1, "invalid LEDC channel");
 
+    if (!s_pwm_channels[channel].configured) {
+        return luaL_error(L, "PWM channel %d has not been configured (call setup_pwm first)", channel);
+    }
+
     int duty = (int)luaL_checkinteger(L, 2);
+    int max_duty = (1 << s_pwm_channels[channel].resolution) - 1;
+    luaL_argcheck(L, duty >= 0 && duty <= max_duty, 2, "duty out of range for channel resolution");
 
     esp_err_t err = ledc_set_duty(LEDC_LOW_SPEED_MODE, (ledc_channel_t)channel, duty);
     if (err != ESP_OK) {
@@ -542,7 +567,14 @@ static int l_gpio_fade_pwm(lua_State *L) {
     int channel = (int)luaL_checkinteger(L, 1);
     luaL_argcheck(L, channel >= 0 && channel < LEDC_CHANNEL_MAX, 1, "invalid LEDC channel");
 
+    if (!s_pwm_channels[channel].configured) {
+        return luaL_error(L, "PWM channel %d has not been configured (call setup_pwm first)", channel);
+    }
+
     int target_duty = (int)luaL_checkinteger(L, 2);
+    int max_duty = (1 << s_pwm_channels[channel].resolution) - 1;
+    luaL_argcheck(L, target_duty >= 0 && target_duty <= max_duty, 2, "target_duty out of range for channel resolution");
+
     int duration_ms = (int)luaL_checkinteger(L, 3);
     luaL_argcheck(L, duration_ms >= 0, 3, "duration must be non-negative");
 

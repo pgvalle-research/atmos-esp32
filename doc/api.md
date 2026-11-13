@@ -253,6 +253,17 @@ Gets the local MAC address of the board.
 * **Syntax:** `espnow.get_mac()`
 * **Returns:** `string` (The formatted MAC address, e.g., `"24:0a:c4:05:06:07"`).
 
+### `espnow.get_channel`
+Gets the current operational Wi-Fi radio channel used by ESP-NOW.
+* **Syntax:** `espnow.get_channel()`
+* **Returns:** `integer` (Channel number, `1` to `14`).
+
+### `espnow.set_channel`
+Sets the operational Wi-Fi radio channel used by ESP-NOW.
+* **Syntax:** `espnow.set_channel(channel)`
+* **Arguments:**
+  * `channel`: `integer` (Wi-Fi channel `1` to `14`).
+
 ### `espnow.add_peer`
 Registers a target peer device. This must be called before sending unicast messages to a peer.
 * **Syntax:** `espnow.add_peer(mac_str)`

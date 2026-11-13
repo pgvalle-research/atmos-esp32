@@ -259,6 +259,28 @@ static int l_espnow_get_mac(lua_State *L) {
     return 1;
 }
 
+static int l_espnow_get_channel(lua_State *L) {
+    uint8_t primary = 0;
+    wifi_second_chan_t second = WIFI_SECOND_CHAN_NONE;
+    esp_err_t err = esp_wifi_get_channel(&primary, &second);
+    if (err != ESP_OK) {
+        return luaL_error(L, "failed to get wifi channel: %s", esp_err_to_name(err));
+    }
+    lua_pushinteger(L, primary);
+    return 1;
+}
+
+static int l_espnow_set_channel(lua_State *L) {
+    int channel = (int)luaL_checkinteger(L, 1);
+    luaL_argcheck(L, channel >= 1 && channel <= 14, 1, "invalid Wi-Fi channel (1-14)");
+
+    esp_err_t err = esp_wifi_set_channel((uint8_t)channel, WIFI_SECOND_CHAN_NONE);
+    if (err != ESP_OK) {
+        return luaL_error(L, "failed to set wifi channel: %s", esp_err_to_name(err));
+    }
+    return 0;
+}
+
 static int l_espnow_next_event(lua_State *L) {
     if (s_espnow_queue == NULL) {
         lua_pushnil(L);
@@ -310,6 +332,8 @@ static const luaL_Reg s_espnow_lib[] = {
     {"add_peer", l_espnow_add_peer},
     {"send", l_espnow_send},
     {"get_mac", l_espnow_get_mac},
+    {"get_channel", l_espnow_get_channel},
+    {"set_channel", l_espnow_set_channel},
     {"next_event", l_espnow_next_event},
     {NULL, NULL}
 };
