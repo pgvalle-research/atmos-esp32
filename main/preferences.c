@@ -18,6 +18,13 @@ typedef struct {
     bool is_open;
 } lua_prefs_t;
 
+static bool should_commit(lua_State *L, int idx) {
+    if (lua_gettop(L) >= idx && !lua_isnil(L, idx)) {
+        return lua_toboolean(L, idx);
+    }
+    return true; // default true for safety
+}
+
 static lua_prefs_t *check_prefs(lua_State *L, int idx) {
     lua_prefs_t *prefs = (lua_prefs_t *)luaL_checkudata(L, idx, PREFS_METATABLE);
     if (!prefs->is_open) {
@@ -68,6 +75,7 @@ static int l_prefs_open(lua_State *L) {
 static int l_prefs_close(lua_State *L) {
     lua_prefs_t *prefs = (lua_prefs_t *)luaL_checkudata(L, 1, PREFS_METATABLE);
     if (prefs && prefs->is_open) {
+        (void)nvs_commit(prefs->handle);
         nvs_close(prefs->handle);
         prefs->is_open = false;
     }
@@ -97,9 +105,11 @@ static int l_prefs_set_i32(lua_State *L) {
     if (err != ESP_OK) {
         return luaL_error(L, "Failed to write int '%s': %s", key, esp_err_to_name(err));
     }
-    err = nvs_commit(prefs->handle);
-    if (err != ESP_OK) {
-        return luaL_error(L, "Failed to commit '%s': %s", key, esp_err_to_name(err));
+    if (should_commit(L, 4)) {
+        err = nvs_commit(prefs->handle);
+        if (err != ESP_OK) {
+            return luaL_error(L, "Failed to commit '%s': %s", key, esp_err_to_name(err));
+        }
     }
 
     lua_pushboolean(L, true);
@@ -137,9 +147,11 @@ static int l_prefs_set_bool(lua_State *L) {
     if (err != ESP_OK) {
         return luaL_error(L, "Failed to write bool '%s': %s", key, esp_err_to_name(err));
     }
-    err = nvs_commit(prefs->handle);
-    if (err != ESP_OK) {
-        return luaL_error(L, "Failed to commit '%s': %s", key, esp_err_to_name(err));
+    if (should_commit(L, 4)) {
+        err = nvs_commit(prefs->handle);
+        if (err != ESP_OK) {
+            return luaL_error(L, "Failed to commit '%s': %s", key, esp_err_to_name(err));
+        }
     }
 
     lua_pushboolean(L, true);
@@ -177,9 +189,11 @@ static int l_prefs_set_str(lua_State *L) {
     if (err != ESP_OK) {
         return luaL_error(L, "Failed to write string '%s': %s", key, esp_err_to_name(err));
     }
-    err = nvs_commit(prefs->handle);
-    if (err != ESP_OK) {
-        return luaL_error(L, "Failed to commit '%s': %s", key, esp_err_to_name(err));
+    if (should_commit(L, 4)) {
+        err = nvs_commit(prefs->handle);
+        if (err != ESP_OK) {
+            return luaL_error(L, "Failed to commit '%s': %s", key, esp_err_to_name(err));
+        }
     }
 
     lua_pushboolean(L, true);
@@ -237,9 +251,11 @@ static int l_prefs_remove(lua_State *L) {
     if (err != ESP_OK && err != ESP_ERR_NVS_NOT_FOUND) {
         return luaL_error(L, "Failed to erase key '%s': %s", key, esp_err_to_name(err));
     }
-    err = nvs_commit(prefs->handle);
-    if (err != ESP_OK) {
-        return luaL_error(L, "Failed to commit erase '%s': %s", key, esp_err_to_name(err));
+    if (should_commit(L, 3)) {
+        err = nvs_commit(prefs->handle);
+        if (err != ESP_OK) {
+            return luaL_error(L, "Failed to commit erase '%s': %s", key, esp_err_to_name(err));
+        }
     }
 
     lua_pushboolean(L, true);
@@ -253,9 +269,11 @@ static int l_prefs_clear(lua_State *L) {
     if (err != ESP_OK) {
         return luaL_error(L, "Failed to clear namespace: %s", esp_err_to_name(err));
     }
-    err = nvs_commit(prefs->handle);
-    if (err != ESP_OK) {
-        return luaL_error(L, "Failed to commit clear: %s", esp_err_to_name(err));
+    if (should_commit(L, 2)) {
+        err = nvs_commit(prefs->handle);
+        if (err != ESP_OK) {
+            return luaL_error(L, "Failed to commit clear: %s", esp_err_to_name(err));
+        }
     }
 
     lua_pushboolean(L, true);
@@ -274,14 +292,40 @@ static int l_prefs_commit(lua_State *L) {
     return 1;
 }
 
-static const luaL_Reg s_prefs_lib[] = {
-    {"open", l_prefs_open},
-    {"close", l_prefs_close},
+static const luaL_Reg s_prefs_methods[] = {
+    {"put_int", l_prefs_set_i32},
     {"set_i32", l_prefs_set_i32},
+    {"get_int", l_prefs_get_i32},
     {"get_i32", l_prefs_get_i32},
+    {"put_bool", l_prefs_set_bool},
     {"set_bool", l_prefs_set_bool},
     {"get_bool", l_prefs_get_bool},
+    {"put_string", l_prefs_set_str},
     {"set_str", l_prefs_set_str},
+    {"get_string", l_prefs_get_str},
+    {"get_str", l_prefs_get_str},
+    {"is_key", l_prefs_is_key},
+    {"remove", l_prefs_remove},
+    {"clear", l_prefs_clear},
+    {"commit", l_prefs_commit},
+    {"close", l_prefs_close},
+    {NULL, NULL}
+};
+
+static const luaL_Reg s_prefs_lib[] = {
+    {"open", l_prefs_open},
+    {"begin", l_prefs_open},
+    {"close", l_prefs_close},
+    {"put_int", l_prefs_set_i32},
+    {"set_i32", l_prefs_set_i32},
+    {"get_int", l_prefs_get_i32},
+    {"get_i32", l_prefs_get_i32},
+    {"put_bool", l_prefs_set_bool},
+    {"set_bool", l_prefs_set_bool},
+    {"get_bool", l_prefs_get_bool},
+    {"put_string", l_prefs_set_str},
+    {"set_str", l_prefs_set_str},
+    {"get_string", l_prefs_get_str},
     {"get_str", l_prefs_get_str},
     {"is_key", l_prefs_is_key},
     {"remove", l_prefs_remove},
@@ -296,6 +340,9 @@ void register_preferences(lua_State *L) {
         lua_setfield(L, -2, "__gc");
         lua_pushcfunction(L, l_prefs_tostring);
         lua_setfield(L, -2, "__tostring");
+
+        luaL_newlib(L, s_prefs_methods);
+        lua_setfield(L, -2, "__index");
     }
     lua_pop(L, 1);
 

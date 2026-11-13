@@ -378,11 +378,12 @@ Opens a storage namespace. Sets the active namespace for module-level methods an
 * **Returns:** `Preferences` handle object.
 
 ### `preferences.put_int`
-Stores a 32-bit signed integer in flash and automatically commits.
-* **Syntax:** `preferences.put_int(key, value)` or `handle:put_int(key, value)`
+Stores a 32-bit signed integer in flash. By default, changes are committed immediately. Pass `false` for `commit` to batch multiple writes and commit once via `preferences.commit()`.
+* **Syntax:** `preferences.put_int(key, value[, commit])` or `handle:put_int(key, value[, commit])`
 * **Arguments:**
   * `key`: `string` (1 to 15 characters).
   * `value`: `integer` (32-bit signed integer).
+  * `commit`: `boolean` (Optional, default: `true`).
 * **Returns:** `boolean` (`true` on success).
 
 ### `preferences.get_int`
@@ -422,6 +423,11 @@ Removes a specific key from flash and commits.
 ### `preferences.clear`
 Erases all keys in the open namespace and commits.
 * **Syntax:** `preferences.clear()`
+* **Returns:** `boolean`
+
+### `preferences.commit`
+Explicitly commits any pending uncommitted changes to flash.
+* **Syntax:** `preferences.commit()` or `handle:commit()`
 * **Returns:** `boolean`
 
 ### `preferences.close`

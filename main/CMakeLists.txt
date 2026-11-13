@@ -33,8 +33,29 @@ if(NOT CMAKE_BUILD_EARLY_EXPANSION)
         COMMENT "Building 32-bit host Lua interpreter for cross-compiling bytecode"
     )
 
-  # Target to compile Lua scripts to 32-bit bytecode
-  add_custom_target(compile_lua_bytecode
+  # Collect all script source dependencies for incremental builds
+  file(GLOB_RECURSE APP_SOURCES CONFIGURE_DEPENDS "${APP_SRC_DIR}/*")
+  file(GLOB_RECURSE ESP32_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/../lua/esp32/*")
+  set(LUA_BYTECODE_DEPS
+        "${HOST_LUA_32}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../compile_lua.py"
+        ${APP_SOURCES}
+        ${ESP32_SOURCES}
+  )
+  if(EXISTS "${ATMOS_LUA_DIR}")
+    file(GLOB_RECURSE ATMOS_SOURCES CONFIGURE_DEPENDS "${ATMOS_LUA_DIR}/*")
+    list(APPEND LUA_BYTECODE_DEPS ${ATMOS_SOURCES})
+  endif()
+  if(EXISTS "${F_STREAMS_LUA_DIR}")
+    file(GLOB_RECURSE STREAMS_SOURCES CONFIGURE_DEPENDS "${F_STREAMS_LUA_DIR}/*")
+    list(APPEND LUA_BYTECODE_DEPS ${STREAMS_SOURCES})
+  endif()
+
+  set(LUA_COMPILED_STAMP "${CMAKE_BINARY_DIR}/lua_compiled.stamp")
+
+  # Command to compile Lua scripts to 32-bit bytecode only when sources change
+  add_custom_command(
+        OUTPUT "${LUA_COMPILED_STAMP}"
         COMMAND ${CMAKE_COMMAND} -E env "PATH=${CMAKE_BINARY_DIR}:$ENV{PATH}"
                 python "${CMAKE_CURRENT_SOURCE_DIR}/../compile_lua.py"
                 "${HOST_LUA_32}"
@@ -44,9 +65,14 @@ if(NOT CMAKE_BUILD_EARLY_EXPANSION)
                 "streams=${F_STREAMS_LUA_DIR}"
                 "esp32=${CMAKE_CURRENT_SOURCE_DIR}/../lua/esp32"
                 "${ATMOS_SRC_ARG}"
-        DEPENDS "${HOST_LUA_32}"
-        COMMENT "Compiling Lua source files to 32-bit bytecode"
+        COMMAND ${CMAKE_COMMAND} -E touch "${LUA_COMPILED_STAMP}"
+        DEPENDS ${LUA_BYTECODE_DEPS}
+        COMMENT "Compiling Lua/Atmos source files to 32-bit bytecode"
     )
+
+  add_custom_target(compile_lua_bytecode
+        DEPENDS "${LUA_COMPILED_STAMP}"
+  )
 
   # Note: you must have a partition named "lua" in your partition table
   littlefs_create_partition_image(lua "${LUA_COMPILED_DIR}" FLASH_IN_PROJECT DEPENDS compile_lua_bytecode)
