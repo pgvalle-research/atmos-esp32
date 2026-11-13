@@ -330,7 +330,8 @@ static int l_gpio_read_adc(lua_State *L) {
 // =========================================================================
 
 static IRAM_ATTR bool pwm_fade_end_callback(const ledc_cb_param_t *param, void *user_arg) {
-    int channel = (int)(intptr_t)user_arg;
+    (void)user_arg;
+    int channel = param ? (int)param->channel : 0;
     QueueHandle_t queue = get_hw_event_queue();
     if (queue == NULL) {
         return false;
@@ -406,7 +407,7 @@ static int l_gpio_setup_pwm(lua_State *L) {
     ledc_cbs_t callbacks = {
         .fade_cb = pwm_fade_end_callback
     };
-    err = ledc_cb_register(LEDC_LOW_SPEED_MODE, (ledc_channel_t)channel, &callbacks, (void*)(intptr_t)channel);
+    err = ledc_cb_register(LEDC_LOW_SPEED_MODE, (ledc_channel_t)channel, &callbacks, NULL);
     if (err != ESP_OK) {
         return luaL_error(L, "ledc_cb_register failed: %s", esp_err_to_name(err));
     }
