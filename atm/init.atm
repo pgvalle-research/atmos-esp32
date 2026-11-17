@@ -10,15 +10,17 @@ ir.start(15)
 
 gpio.setup_pwm(0, 25000, 10)
 
-loop _, p in [25, 26, 32, 33] {
+loop _, p in [19, 18, 4, 23] {
     gpio.attach_pwm(p, 0)
     gpio.write_pwm(0, 0)
 
     gpio.fade_pwm(0, 1023, 2000)
     await :gpio.pwm_fade
-    await 200ms
+    await :ir [repeat=false]
+
     gpio.fade_pwm(0, 0, 2000)
     await :gpio.pwm_fade
-    await 200ms
+    await :ir [repeat=false]
+
     gpio.detach_pwm(p)
 }
