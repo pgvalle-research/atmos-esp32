@@ -18,24 +18,25 @@ func drv8833.setup(l1, l2, r1, r2) {
     gpio.attach_pwm(l2, LC2);
     gpio.attach_pwm(r1, RC1);
     gpio.attach_pwm(r2, RC2);
+    drv8833.reset();
 }
 
 func drv8833.set(vl, vr) {
-    ;; left
+    ;; left (slow decay)
     if vl >= 0 {
-        gpio.write_pwm(LC1, math.min(vl, 1023))
-        gpio.write_pwm(LC2, 0)
+        gpio.write_pwm(LC1, 1023)
+        gpio.write_pwm(LC2, 1023 - math.min(vl, 1023))
     } else {
-        gpio.write_pwm(LC1, 0)
-        gpio.write_pwm(LC2, math.min(-vl, 1023))
+        gpio.write_pwm(LC1, 1023 - math.min(-vl, 1023))
+        gpio.write_pwm(LC2, 1023)
     }
-    ;; right
+    ;; right (slow decay)
     if vr >= 0 {
-        gpio.write_pwm(RC1, math.min(vr, 1023))
-        gpio.write_pwm(RC2, 0)
+        gpio.write_pwm(RC1, 1023)
+        gpio.write_pwm(RC2, 1023 - math.min(vr, 1023))
     } else {
-        gpio.write_pwm(RC1, 0)
-        gpio.write_pwm(RC2, math.min(-vr, 1023))
+        gpio.write_pwm(RC1, 1023 - math.min(-vr, 1023))
+        gpio.write_pwm(RC2, 1023)
     }
 }
 
