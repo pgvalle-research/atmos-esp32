@@ -19,8 +19,8 @@ set M.LEARN_PIN = 0
 set M.D26 = 26
 set M.BTN2 = 12
 
-set M.MA2 = 19
-set M.MA1 = 18
+set M.MA1 = 19
+set M.MA2 = 18
 set M.MB1 = 4
 set M.MB2 = 23
 
