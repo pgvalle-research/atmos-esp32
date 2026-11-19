@@ -1,7 +1,9 @@
 val esp32 = require "esp32"
 val gpio = esp32.gpio
 
-val drv8833 = []
+val brd = require "ultrat.board"
+
+val M = []
 
 ;; led control channels
 val L1 = 0
@@ -9,7 +11,7 @@ val L2 = 1
 val R1 = 2
 val R2 = 3
 
-func drv8833.setup() {
+func M.setup() {
     gpio.setup_pwm(L1, 25000, 10);
     gpio.setup_pwm(L2, 25000, 10);
     gpio.setup_pwm(R1, 25000, 10);
@@ -18,10 +20,10 @@ func drv8833.setup() {
     gpio.attach_pwm(brd.MB2, L2);
     gpio.attach_pwm(brd.MA1, R1);
     gpio.attach_pwm(brd.MA2, R2);
-    drv8833.reset();
+    M.reset();
 }
 
-func drv8833.set(vl, vr) {
+func M.set(vl, vr) {
     val l = (vl + 0.5) // 1
     val r = (vr + 0.5) // 1
     ;; left (slow decay)
@@ -42,17 +44,11 @@ func drv8833.set(vl, vr) {
     }
 }
 
-func drv8833.reset() {
+func M.reset() {
     gpio.write_pwm(L1, 1023)
     gpio.write_pwm(L2, 1023)
     gpio.write_pwm(R1, 1023)
     gpio.write_pwm(R2, 1023)
 }
 
-set drv8833.Move = task (vl, vr, dt) {
-    drv8833.set(vl, vr)
-    await(dt)
-    drv8833.reset()
-}
-
-drv8833
+M
