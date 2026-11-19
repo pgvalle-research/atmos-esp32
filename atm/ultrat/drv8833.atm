@@ -4,47 +4,49 @@ val gpio = esp32.gpio
 val drv8833 = []
 
 ;; led control channels
-val LC1 = 0
-val LC2 = 1
-val RC1 = 2
-val RC2 = 3
+val L1 = 0
+val L2 = 1
+val R1 = 2
+val R2 = 3
 
-func drv8833.setup(l1, l2, r1, r2) {
-    gpio.setup_pwm(LC1, 25000, 10);
-    gpio.setup_pwm(LC2, 25000, 10);
-    gpio.setup_pwm(RC1, 25000, 10);
-    gpio.setup_pwm(RC2, 25000, 10);
-    gpio.attach_pwm(l1, LC1);
-    gpio.attach_pwm(l2, LC2);
-    gpio.attach_pwm(r1, RC1);
-    gpio.attach_pwm(r2, RC2);
+func drv8833.setup() {
+    gpio.setup_pwm(L1, 25000, 10);
+    gpio.setup_pwm(L2, 25000, 10);
+    gpio.setup_pwm(R1, 25000, 10);
+    gpio.setup_pwm(R2, 25000, 10);
+    gpio.attach_pwm(brd.MB1, L1);
+    gpio.attach_pwm(brd.MB2, L2);
+    gpio.attach_pwm(brd.MA1, R1);
+    gpio.attach_pwm(brd.MA2, R2);
     drv8833.reset();
 }
 
 func drv8833.set(vl, vr) {
+    val l = (vl + 0.5) // 1
+    val r = (vr + 0.5) // 1
     ;; left (slow decay)
-    if vl >= 0 {
-        gpio.write_pwm(LC1, 1023)
-        gpio.write_pwm(LC2, 1023 - math.min(vl, 1023))
+    if l >= 0 {
+        gpio.write_pwm(L1, 1023)
+        gpio.write_pwm(L2, 1023 - math.min(l, 1023))
     } else {
-        gpio.write_pwm(LC1, 1023 - math.min(-vl, 1023))
-        gpio.write_pwm(LC2, 1023)
+        gpio.write_pwm(L1, 1023 - math.min(-l, 1023))
+        gpio.write_pwm(L2, 1023)
     }
     ;; right (slow decay)
-    if vr >= 0 {
-        gpio.write_pwm(RC1, 1023)
-        gpio.write_pwm(RC2, 1023 - math.min(vr, 1023))
+    if r >= 0 {
+        gpio.write_pwm(R1, 1023)
+        gpio.write_pwm(R2, 1023 - math.min(r, 1023))
     } else {
-        gpio.write_pwm(RC1, 1023 - math.min(-vr, 1023))
-        gpio.write_pwm(RC2, 1023)
+        gpio.write_pwm(R1, 1023 - math.min(-r, 1023))
+        gpio.write_pwm(R2, 1023)
     }
 }
 
 func drv8833.reset() {
-    gpio.write_pwm(LC1, 1023)
-    gpio.write_pwm(LC2, 1023)
-    gpio.write_pwm(RC1, 1023)
-    gpio.write_pwm(RC2, 1023)
+    gpio.write_pwm(L1, 1023)
+    gpio.write_pwm(L2, 1023)
+    gpio.write_pwm(R1, 1023)
+    gpio.write_pwm(R2, 1023)
 }
 
 set drv8833.Move = task (vl, vr, dt) {
