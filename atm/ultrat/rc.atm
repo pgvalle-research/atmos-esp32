@@ -8,8 +8,6 @@ val drv = require "ultrat.drv8833"
 
 val cmds = []
 
-ir.start(15)
-
 task Setup () {
     io.setup(2, "output")
     io.write(2, false)
