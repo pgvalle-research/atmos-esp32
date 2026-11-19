@@ -18,19 +18,19 @@ set M.Select = task () {
     mode
 }
 
-task ISeeYou() {
+set M.ISeeYou = task () {
     spawn Pid()
     loop {
         await :TARGET [true]
         spawn {
             loop {
-                val pid, _ = await :PID
-                if pid == 0 => drv.set(1023, 1023)
-                            => drv.set(pid, -pid)
+                val pid = await :PID
+                if pid@1 == 0 => drv.set(1023, 1023)
+                              => drv.set(pid@1, -pid@1)
             }
         }
         await :TARGET [false]
-        motors.stop()
+        drv.reset()
     }
 }
 
@@ -46,7 +46,7 @@ task Calibration() {
             }
         }
         await :TARGET [false]
-        motors.stop()
+        drv.reset()
     }
 }
 
