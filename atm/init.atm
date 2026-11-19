@@ -1,5 +1,6 @@
 val esp = require "esp32"
 val ir = esp.ir
+val io = esp.gpio
 val debug = esp.debug
 
 ir.start(15)
@@ -11,5 +12,10 @@ val drv = require "ultrat.drv8833"
 val brd = require "ultrat.board"
 val modes = require "ultrat.modes"
 
-drv.setup(brd.MB1, brd.MB2, brd.MA1, brd.MA2)
+io.setup(brd.S_ESQ, "input")
+io.setup(brd.S_FESQ, "input")
+io.setup(brd.S_FDIR, "input")
+io.setup(brd.S_DIR, "input")
+drv.setup()
+
 await modes.ISeeYou()
