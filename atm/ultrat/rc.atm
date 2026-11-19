@@ -43,7 +43,7 @@ func lerp2i(atual, alvo, t) {
 task () {
     ;; check if cmds valid
     await Setup()
-    drv.setup(board.MA1, board.MA2, board.MB1, board.MB2)
+    drv.setup()
 
     var v_atual = [0, 0]
     var v_alvo = [0, 0]
