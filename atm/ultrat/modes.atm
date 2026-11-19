@@ -40,9 +40,9 @@ task Calibration() {
         await :TARGET [true]
         spawn {
             loop {
-                val pid, _ = await :PID
-                if pid == 0 => drv.reset()
-                            => drv.set(pid, -pid)
+                val pid = await :PID
+                if pid@1 == 0 => drv.reset()
+                              => drv.set(pid@1, -pid@1)
             }
         }
         await :TARGET [false]
