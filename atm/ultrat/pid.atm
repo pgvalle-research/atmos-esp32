@@ -3,20 +3,15 @@ val io = esp.gpio
 
 ;; robot imports
 val drv = require "ultrat.drv8833"
-val board = require "ultrat.board"
+val brd = require "ultrat.board"
 
 val KP, KI, KD = (450, 0, 0)
 
-io.read(board.S_ESQ, "input")
-io.read(board.S_FESQ, "input")
-io.read(board.S_FDIR, "input")
-io.read(board.S_DIR, "input")
-
 val func read_sensors() {
-    [ io.read(board.S_ESQ),
-      io.read(board.S_FESQ),
-      io.read(board.S_FDIR),
-      io.read(board.S_DIR) ]
+    [ io.read(brd.S_ESQ),
+      io.read(brd.S_FESQ),
+      io.read(brd.S_FDIR),
+      io.read(brd.S_DIR) ]
 }
 
 val func calculate_error(readings) {
@@ -31,8 +26,8 @@ val func calculate_error(readings) {
         }
     }
 
-    if (active == 0) => 0
-                     => (w_sum / active)
+    if (active == 0) => (0, false)
+                     => (w_sum / active, true)
 }
 
 task () {
@@ -41,11 +36,10 @@ task () {
     var tgt_before = false
 
     loop {
-        val dt = await :clock    ;; as fast as possible
+        val dt = (await :clock) / 1000000.0    ;; seconds, as fast as possible
         val readings = read_sensors()
-        val err = calculate_error(readings)
+        val err, tgt = calculate_error(readings)
 
-        val tgt = err != 0 ;; tricky way to get this tho
         if tgt != tgt_before {
             ;; very abstract
             emit @(:parent) (:TARGET [tgt])
