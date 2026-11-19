@@ -2,9 +2,14 @@ val esp = require "esp32"
 val ir = esp.ir
 val debug = esp.debug
 
-val Rc = require "ultrat.rc"
+ir.start(15)
 
 spawn debug.Mem()
 spawn debug.Fps()
 
-await Rc()
+val drv = require "ultrat.drv8833"
+val brd = require "ultrat.board"
+val modes = require "ultrat.modes"
+
+drv.setup(brd.MB1, brd.MB2, brd.MA1, brd.MA2)
+await modes.ISeeYou()
