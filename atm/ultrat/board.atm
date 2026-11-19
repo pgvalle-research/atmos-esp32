@@ -1,5 +1,5 @@
 val esp = require "esp32"
-val gpio = esp.gpio
+val io = esp.gpio
 
 val M = []
 
@@ -24,17 +24,16 @@ set M.MA2 = 18
 set M.MB1 = 4
 set M.MB2 = 23
 
-set M.S_ESQ = M.S7
-set M.S_FESQ = M.S3
-set M.S_FDIR = M.D26
-set M.S_DIR = M.S8
+set M.S_ESQ = M.S8
+set M.S_FESQ = M.S6
+set M.S_FDIR = M.S3
+set M.S_DIR = M.S2
 
 set M.BlinkLed = task (gpio_pin, n, time_on, time_off) {
-    gpio.setup(gpio_pin, "output")
     loop i {
-        gpio.write(gpio_pin, true)
+        io.write(gpio_pin, true)
         await(time_on)
-        gpio.write(gpio_pin, false)
+        io.write(gpio_pin, false)
         await(time_off)
 
         ;; n <= 0 -> blink indefinetely

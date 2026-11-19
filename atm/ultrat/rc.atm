@@ -1,0 +1,78 @@
+val esp = require "esp32"
+val ir = esp.ir
+val io = esp.gpio
+
+;; robot imports
+val board = require "ultrat.board"
+val drv = require "ultrat.drv8833"
+
+val cmds = []
+
+ir.start(15)
+
+task Setup () {
+    io.setup(2, "output")
+    io.write(2, false)
+
+    var ir = await :ir [repeat=false]
+    set cmds.f = ir.command
+    await board.BlinkLed(2, 1, 100ms, :clock)
+
+    set ir = await :ir [repeat=false]
+    set cmds.b = ir.command
+    await board.BlinkLed(2, 1, 100ms, :clock)
+
+    set ir = await :ir [repeat=false]
+    set cmds.l = ir.command
+    await board.BlinkLed(2, 1, 100ms, :clock)
+
+    set ir = await :ir [repeat=false]
+    set cmds.r = ir.command
+    await board.BlinkLed(2, 1, 100ms, :clock)
+}
+
+func lerp1i(a, b, t) {
+    val v = ((a + ((b - a) * t)) + 0.5) // 1
+    if math.abs(b - v) <= 1 => b
+                            => v
+}
+
+func lerp2i(atual, alvo, t) {
+    [ lerp1i(atual@1, alvo@1, t),
+      lerp1i(atual@2, alvo@2, t) ]
+}
+
+task () {
+    ;; check if cmds valid
+    await Setup()
+    drv.setup(board.MA1, board.MA2, board.MB1, board.MB2)
+
+    var v_atual = [0, 0]
+    var v_alvo = [0, 0]
+    par {
+        loop {
+            ;; timeout to force a stop
+            watching :ir {
+                await 100ms
+                set v_alvo = [0, 0]
+            }    
+        }
+    } with {
+        loop {
+            val ir = await :ir
+            match ir.command {
+                cmds.f => set v_alvo = [1023, 1023]
+                cmds.b => set v_alvo = [-1023, -1023]
+                cmds.l => set v_alvo = [-1023, 1023]
+                cmds.r => set v_alvo = [1023, -1023]
+            }
+        }
+    } with {
+        loop {
+            await :clock
+            set v_atual = lerp2i(v_atual, v_alvo, 2/3)
+            drv.set(v_atual@1, v_atual@2)
+            X.print(v_atual)
+        }
+    }
+}
