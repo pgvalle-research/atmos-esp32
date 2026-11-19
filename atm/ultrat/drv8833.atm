@@ -51,4 +51,10 @@ func M.reset() {
     gpio.write_pwm(R2, 1023)
 }
 
+set M.Move = task (vl, vr, dt) {
+    M.set(vl, vr)
+    await(dt)
+    M.reset()
+}
+
 M
